@@ -1,4 +1,3 @@
-<!-- ignore this page, this is just an example of a component.  -->
 <script setup>
 defineProps({
   msg: {

@@ -1,3 +1,4 @@
+<!-- example of a component that is used in the welcome page. ignore this page, this is just an example of a component. -->
 <template>
   <div class="item">
     <i>
