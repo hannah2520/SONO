@@ -1,3 +1,5 @@
+// this is how our project handles routing. this will be helpful to navigate to other pages with the navbar component.
+// this is the logic behind navbar, how it actually works
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 

@@ -1,3 +1,4 @@
+<!-- ignore this page, this is just an example of a component. -->
 <script setup>
 import WelcomeItem from './WelcomeItem.vue'
 import DocumentationIcon from './icons/IconDocumentation.vue'

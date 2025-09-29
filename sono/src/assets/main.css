@@ -1,4 +1,7 @@
-@import './base.css';
+/* this will be our global css file, basically every style we want on the whole project will go here. */
+/* unless you know its gonna be used everywhere, put your styles in ur specific page/component */
+
+/* @import './base.css'; */
 
 #app {
   max-width: 1280px;
@@ -27,9 +30,9 @@ a,
     place-items: center;
   }
 
-  #app {
+  /* #app {
     display: grid;
     grid-template-columns: 1fr 1fr;
     padding: 0 2rem;
-  }
+  } */
 }
