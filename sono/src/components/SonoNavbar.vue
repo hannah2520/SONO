@@ -1,7 +1,7 @@
 <template>
   <nav class="navbar">
     <div class="logo-section">
-      <img src="@/assets/logo.svg" alt="SONO Logo" class="logo-icon" />
+  <img src="@/assets/sono_brandmark_white_logo_only.png" alt="SONO Logo" class="logo-icon" />
       <span class="logo-text">SONO</span>
     </div>
 
