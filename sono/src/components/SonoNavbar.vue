@@ -31,9 +31,11 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #f9f8f6;
+  /* darker gradient so the white brandmark stands out */
+  background: linear-gradient(90deg, #2b0b3a 0%, #6a17bf 60%, #ff8ad4 100%);
+  color: #fff;
   padding: 1rem 2rem;
-  border-bottom: 1px solid #ddd;
+  border-bottom: none;
   font-family: 'Helvetica Neue', sans-serif;
 }
 
@@ -43,18 +45,18 @@ export default {
 }
 
 .logo-icon {
-  width: 40px;
-  height: 40px;
-  margin-right: 10px;
+  width: 48px;
+  height: 48px;
+  margin-right: 12px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35));
 }
 
 .logo-text {
-  font-size: 1.5rem;
-  font-weight: bold;
-  background: linear-gradient(to right, #a18cd1, #fbc2eb);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: rgba(255,255,255,0.95);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.4);
 }
 
 .nav-links {
@@ -66,23 +68,24 @@ export default {
 
 .nav-links a {
   text-decoration: none;
-  color: #555;
+  color: rgba(255,255,255,0.95);
   font-size: 1rem;
-  transition: 0.3s ease;
+  transition: 0.2s ease;
 }
 
 .nav-links a:hover {
-  color: #000;
+  color: #fff;
+  opacity: 0.95;
 }
 
 .gradient-btn {
-  background: linear-gradient(to right, #c471ed, #f64f59);
+  background: linear-gradient(90deg,#ff8ad4,#b45fff);
   color: white;
-  padding: 0.6rem 1.4rem;
+  padding: 0.5rem 1.2rem;
   border: none;
-  border-radius: 30px;
-  box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
-  font-weight: bold;
+  border-radius: 24px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+  font-weight: 700;
 }
 
 .active {
@@ -96,15 +99,13 @@ export default {
 }
 
 .spotify-btn {
-  padding: 0.6rem 1.4rem;
-  border-radius: 30px;
-  background: white;
-  border: 2px solid transparent;
-  background-clip: padding-box;
-  border-image: linear-gradient(to right, #ef629f, #ffb88c) 1;
-  color: #ec4899;
+  padding: 0.5rem 1rem;
+  border-radius: 24px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #fff;
   font-weight: 600;
-  transition: all 0.3s ease;
+  transition: all 0.18s ease;
 }
 
 .spotify-btn:hover {
