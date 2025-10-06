@@ -6,25 +6,40 @@ import SonoFooter from './components/SonoFooter.vue';
 </script>
 
 <template>
-  <header>
-    <!-- <img alt="Vue logo" class="logo" src="@/assets/logo.svg" width="125" height="125" /> -->
+  <div id="app-root">
+    <header>
+      <!-- <img alt="Vue logo" class="logo" src="@/assets/logo.svg" width="125" height="125" /> -->
 
       <!-- <nav>
         <RouterLink to="/">Home</RouterLink>
         <RouterLink to="/about">About</RouterLink>
       </nav> -->
       <SonoNavbar />
-        <router-view />
-      <SonoFooter />
-  </header>
+    </header>
 
-  <RouterView />
+    <main>
+      <RouterView />
+    </main>
+
+    <SonoFooter />
+  </div>
 </template>
 
 <style scoped>
+/* layout: header, main content, footer */
+#app-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
 header {
   line-height: 1.5;
-  max-height: 100vh;
+}
+
+main {
+  flex: 1 0 auto; /* take remaining space so footer stays at bottom */
+  padding: 1rem;
 }
 
 nav {
