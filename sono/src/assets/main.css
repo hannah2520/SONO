@@ -2,15 +2,33 @@
 /* unless you know its gonna be used everywhere, put your styles in ur specific page/component */
 
 /* @import './base.css'; */
-
-#app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  font-weight: normal;
+@font-face {
+  font-family: 'Arial Nova';
+  src: url('./ArialNova.ttf') format('truetype');
+}
+body, p{
+  font-family: 'Arial Nova', sans-serif;
 }
 
-a,
+h1,
+h2,
+h3 {
+  font-family: 'Milker';
+  src: url('./Milker.otf') format('opentype');
+}
+h4,
+h5,
+h6 {
+  font-family: 'monorail';
+  src:url('./Monorail.otf') format('opentype');
+}
+/* #app {
+  /* max-width: 1280px; */
+/* margin: 0 auto; */
+/* padding: 2rem; */
+/* font-weight: normal; */
+
+/* a,
 .green {
   text-decoration: none;
   color: hsla(160, 100%, 37%, 1);
@@ -28,11 +46,11 @@ a,
   body {
     display: flex;
     place-items: center;
-  }
+  } */
 
-  /* #app {
+/* #app {
     display: grid;
     grid-template-columns: 1fr 1fr;
     padding: 0 2rem;
   } */
-}
+/* } */
