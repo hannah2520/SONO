@@ -1,38 +1,253 @@
 <template>
-  <div class="add-playlist">
-    <h2>Add Playlist</h2>
-    <form @submit.prevent="onSubmit">
-      <label>
-        Playlist name
-        <input v-model="name" placeholder="My playlist" />
-      </label>
-      <button type="submit">Create</button>
-    </form>
-  </div>
+  <section class="playlist-container">
+    <header class="playlist-header">
+      <div class="header-left">
+        <h1 class="add-title">Add Playlist</h1>
+        <p class="subtitle">Groovy X-pop Vibes</p>
+      </div>
+      <div class="header-actions">
+        <button class="create-btn">＋ Create playlist</button>
+      </div>
+    </header>
+
+    <div class="playlist-table">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Duration</th>
+            <th>Artist</th>
+            <th>Album</th>
+            <th>Add to playlist</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(song, index) in songs" :key="index">
+            <td>{{ index + 1 }}</td>
+            <td class="song-info">
+              <img :src="song.thumbnail" alt="cover" />
+              <span>{{ song.name }}</span>
+            </td>
+            <td>{{ song.duration }}</td>
+            <td>{{ song.artist }}</td>
+            <td>{{ song.album }}</td>
+            <td><button class="add-btn">＋</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="player-bar">
+      <img :src="songs[2].thumbnail" alt="now playing" class="player-thumb" />
+      <div class="player-info">
+        <h4>{{ songs[2].name }}</h4>
+        <p>{{ songs[2].artist }}</p>
+      </div>
+      <div class="controls">
+        <button>⏮</button>
+        <button>⏯</button>
+        <button>⏭</button>
+      </div>
+      <div class="progress-bar">
+        <div class="progress"></div>
+      </div>
+      <div class="extra-controls">
+        <span>02:34</span>
+        <button>🔀</button>
+        <button>⭐</button>
+      </div>
+    </div>
+  </section>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-
-const name = ref('')
-function onSubmit() {
-  // placeholder: integrate with store or API
-  alert(`Create playlist: ${name.value}`)
-}
+const songs = [
+  {
+    name: "Make It Right",
+    duration: "03:46",
+    artist: "BTS ft Lauv",
+    album: "Single",
+    thumbnail: "https://i.imgur.com/EZgP56b.jpg"
+  },
+  {
+    name: "Dynamite",
+    duration: "03:19",
+    artist: "BTS",
+    album: "BE",
+    thumbnail: "https://i.imgur.com/N5NwUZM.jpg"
+  },
+  {
+    name: "Still With You",
+    duration: "—",
+    artist: "Jeon Jungkook",
+    album: "Solo",
+    thumbnail: "https://i.imgur.com/SYZr5eE.jpg"
+  }
+]
 </script>
 
 <style scoped>
-.add-playlist {
-  padding: 1rem;
+.playlist-container {
+  padding: 2rem;
+  background: linear-gradient(to bottom right, #e7c6ff, #b8f2e6);
+  min-height: 100vh;
+  font-family: 'Helvetica Neue', sans-serif;
 }
 
-.add-playlist form {
+.playlist-header {
   display: flex;
-  gap: 0.5rem;
   align-items: center;
+  justify-content: space-between;
+  background: rgba(255,255,255,0.6);
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(180,95,255,0.08);
+  margin-bottom: 1.25rem;
 }
 
-input {
-  padding: 0.3rem 0.5rem;
+.header-left .add-title {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #6a17bf;
+}
+
+.header-left .subtitle {
+  margin: 0.25rem 0 0 0;
+  font-size: 0.95rem;
+  color: #444;
+}
+
+.header-actions .create-btn {
+  background: linear-gradient(90deg,#ff8ad4,#b45fff);
+  color: white;
+  border: none;
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.add-title {
+  text-align: center;
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #b45fff;
+}
+
+.plus {
+  font-size: 2rem;
+  margin-left: 0.5rem;
+  color: #ff8ad4;
+}
+
+.subtitle {
+  text-align: center;
+  font-family: 'Pacifico', cursive;
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+  color: #444;
+}
+
+.playlist-table {
+  background: #fff;
+  border-radius: 12px;
+  overflow-x: auto;
+  padding: 1rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead {
+  background: #f0f0f0;
+}
+
+th, td {
+  text-align: left;
+  padding: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.song-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.song-info img {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.add-btn {
+  font-size: 1.2rem;
+  background: none;
+  border: none;
+  color: #b45fff;
+  cursor: pointer;
+}
+
+.player-bar {
+  margin-top: 2rem;
+  background: #fff;
+  padding: 1rem 2rem;
+  border-radius: 30px;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.05);
+}
+
+.player-thumb {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+}
+
+.player-info h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.player-info p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.controls button {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  margin: 0 0.5rem;
+  cursor: pointer;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 6px;
+  background: #eee;
+  border-radius: 3px;
+  position: relative;
+}
+
+.progress {
+  height: 100%;
+  width: 40%;
+  background: #ff8ad4;
+  border-radius: 3px;
+}
+
+.extra-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.85rem;
 }
 </style>
