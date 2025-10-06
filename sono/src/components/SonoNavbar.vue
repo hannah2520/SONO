@@ -13,7 +13,8 @@
 
     <div class="action-section">
       <button class="spotify-btn">Connect Spotify</button>
-      <img src="@/assets/profile-icon.png" alt="User Profile" class="profile-icon" />
+      <!-- profile image was missing in assets; use a initials fallback -->
+      <div class="profile-initials">SD</div>
     </div>
   </nav>
 </template>
@@ -50,6 +51,7 @@ export default {
   font-size: 1.5rem;
   font-weight: bold;
   background: linear-gradient(to right, #a18cd1, #fbc2eb);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -111,5 +113,17 @@ export default {
 .profile-icon {
   width: 28px;
   height: 28px;
+}
+
+.profile-initials {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(90deg,#c471ed,#f64f59);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
 }
 </style>
