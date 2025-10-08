@@ -10,6 +10,10 @@ import AddPlaylist from '../components/AddPlaylist.vue'
 
 <style scoped>
 .view-add-playlist {
-  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0.5rem; /* tighter padding to reduce white space */
 }
 </style>
