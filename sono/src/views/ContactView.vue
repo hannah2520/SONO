@@ -52,26 +52,24 @@ function onSubmit() {
 }
 
 .contact-page {
-  /* min-height: 100vh; */
   display: flex;
   flex-direction: column;
-  background:
+  color: #222;
+
+  /* Layered background (SVG + gradients) */
+  background-image:
+    url('/backgroundHome.svg'),
     radial-gradient(1200px 700px at 15% 85%, rgba(148, 87, 235, 0.35), transparent 60%),
     radial-gradient(1000px 600px at 85% 15%, rgba(102, 205, 210, 0.35), transparent 60%),
     linear-gradient(180deg, #f8f9fb 0%, #f1f5f9 100%),
     linear-gradient(135deg, #f8c8d8 0%, #c7b7ff 50%, #d9f2f0 100%);
+
+  background-repeat: no-repeat;
+  background-position: center top;
+  background-size: cover;
   background-blend-mode: screen, screen, normal, multiply;
-  color: #222;
-  font-family:
-    ui-sans-serif,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    Helvetica,
-    Arial,
-    'Apple Color Emoji',
-    'Segoe UI Emoji';
 }
+
 
 .hero {
   flex: 1;

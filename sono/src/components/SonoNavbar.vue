@@ -30,9 +30,11 @@ import { RouterLink } from 'vue-router'
 
 <style scoped>
 .topbar {
-  margin: 1rem;
+  padding: 1rem;
   border-bottom: 1px solid rgba(0, 0, 0, 0.12);
   align-items: center;
+  position: relative; /* allow z-index to work */
+  z-index: 20; /* keep navbar above page backgrounds */
 }
 
 .nav-container {
