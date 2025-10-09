@@ -39,7 +39,8 @@ header {
 
 main {
   flex: 1 0 auto; /* take remaining space so footer stays at bottom */
-  padding: 1rem;
+  padding: 0.5rem 0.75rem; /* reduced padding to tighten layout */
+  min-height: 0;
 }
 
 nav {

@@ -80,38 +80,54 @@ export default {
 
 <style scoped>
 .mood-calendar-page {
-  padding: 1.25rem;
+  /* make the view fill the area provided by the App main container */
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  padding: 0.75rem; /* reduced padding to remove extra white space */
+  min-height: 0; /* allow parent flex to control height */
   font-family: 'Helvetica Neue', system-ui, Arial, sans-serif;
 }
 
 .calendar-header {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 
 .stat-row {
   display: flex;
-  gap: 1rem;
+  gap: 0.6rem;
 }
 
 .stat-card {
   background: white;
-  padding: 0.75rem 1rem;
+  padding: 0.6rem 0.8rem;
   border-radius: 8px;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.05);
+}
+
+.calendar-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto; /* allow calendar to grow and fill space */
+  min-height: 0;
 }
 
 .calendar-body h2 {
-  margin: 0.75rem 0;
+  margin: 0.5rem 0;
 }
 
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 8px;
-  margin-top: 0.75rem;
+  gap: 6px; /* tighter cells */
+  margin-top: 0.5rem;
+  align-items: stretch;
+  /* allow grid to take remaining vertical space and scroll if needed */
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .day-label {
@@ -121,14 +137,17 @@ export default {
 }
 
 .calendar-cell {
-  min-height: 64px;
+  min-height: 56px;
   background: #fff;
   border-radius: 6px;
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
   padding: 6px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.035);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 @media (max-width: 640px) {

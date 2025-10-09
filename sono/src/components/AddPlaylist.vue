@@ -88,10 +88,17 @@ const songs = [
 </script>
 
 <style scoped>
+/* load Pacifico font for this component */
+@import url('https://fonts.googleapis.com/css2?family=Pacifico&display=swap');
+
 .playlist-container {
-  padding: 2rem;
+  /* make the view fill the available space from App.vue (main flex:1) */
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  padding: 1rem; /* reduced padding to minimize white space */
   background: linear-gradient(to bottom right, #e7c6ff, #b8f2e6);
-  min-height: 100vh;
+  min-height: 0; /* allow the container to shrink within flex parent */
   font-family: 'Helvetica Neue', sans-serif;
 }
 
@@ -100,10 +107,10 @@ const songs = [
   align-items: center;
   justify-content: space-between;
   background: rgba(255,255,255,0.6);
-  padding: 1rem 1.5rem;
-  border-radius: 12px;
-  box-shadow: 0 8px 30px rgba(180,95,255,0.08);
-  margin-bottom: 1.25rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(180,95,255,0.06);
+  margin-bottom: 0.75rem;
 }
 
 .header-left .add-title {
@@ -116,6 +123,7 @@ const songs = [
   margin: 0.25rem 0 0 0;
   font-size: 0.95rem;
   color: #444;
+  font-family: 'Pacifico', cursive;
 }
 
 .header-actions .create-btn {
@@ -128,33 +136,14 @@ const songs = [
   font-weight: 700;
 }
 
-.add-title {
-  text-align: center;
-  font-size: 2.5rem;
-  font-weight: 800;
-  color: #b45fff;
-}
-
-.plus {
-  font-size: 2rem;
-  margin-left: 0.5rem;
-  color: #ff8ad4;
-}
-
-.subtitle {
-  text-align: center;
-  font-family: 'Pacifico', cursive;
-  font-size: 1.5rem;
-  margin-bottom: 1.5rem;
-  color: #444;
-}
-
 .playlist-table {
   background: #fff;
-  border-radius: 12px;
+  border-radius: 10px;
   overflow-x: auto;
-  padding: 1rem;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  padding: 0.6rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  /* let table grow to fill remaining vertical space */
+  flex: 1 1 auto;
 }
 
 table {
@@ -194,14 +183,14 @@ th, td {
 }
 
 .player-bar {
-  margin-top: 2rem;
+  margin-top: 1rem;
   background: #fff;
-  padding: 1rem 2rem;
-  border-radius: 30px;
+  padding: 0.75rem 1rem;
+  border-radius: 20px;
   display: flex;
   align-items: center;
-  gap: 1rem;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.05);
+  gap: 0.75rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.04);
 }
 
 .player-thumb {
