@@ -73,23 +73,16 @@
 </template>
 
 <script setup>
-import { reactive, onMounted } from 'vue'
+import { onMounted } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useStatsStore } from '../stores/stats'
 
-// Local reactive stats object — replace onMounted with real data fetch or connect to Pinia
-const stats = reactive({
-  newSongs: 0,
-  activeDays: 0,
-  achievements: 0,
-})
+const statsStore = useStatsStore()
+const { newSongs, activeDays, achievements } = storeToRefs(statsStore)
 
-onMounted(() => {
-  // Example placeholder: simulate fetching stats
-  // Replace with actual API or Pinia store wiring
-  // setTimeout(() => {
-  //   stats.newSongs = 156
-  //   stats.activeDays = 19
-  //   stats.achievements = 3
-  // }, 200)
+onMounted(async () => {
+  // Fetch mock stats from the store — replace with real API call inside the store if needed
+  await statsStore.fetchStats()
 })
 </script>
 
