@@ -26,6 +26,26 @@ a,
   transition: 0.4s;
   padding: 3px;
 }
+@font-face {
+  font-family: 'Arial Nova';
+  src: url('./ArialNova.ttf') format('truetype');
+}
+body, p{
+  font-family: 'Arial Nova', sans-serif;
+}
+
+h1,
+h2,
+h3 {
+  font-family: 'Milker';
+  src: url('./Milker.otf') format('opentype');
+}
+h4,
+h5,
+h6 {
+  font-family: 'monorail';
+  src:url('./Monorail.otf') format('opentype');
+}
 
 @media (hover: hover) {
   a:hover {

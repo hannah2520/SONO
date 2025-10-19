@@ -30,7 +30,7 @@ const router = createRouter({
   path: '/add-playlist',
   name: 'addplaylist',
   component: AddPlaylist,
-}
+},
     {
       path: '/contact',
       name: 'contact',
