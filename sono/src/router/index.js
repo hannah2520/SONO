@@ -32,6 +32,11 @@ const router = createRouter({
       name: 'spotify-callback',
       component: () => import('../views/SpotifyCallback.vue'),
     },
+    {
+      path: '/mood-calendar',
+      name: 'mood-calendar',
+      component: () => import('../views/MoodCalendar.vue'),
+    },
   ],
 })
 
