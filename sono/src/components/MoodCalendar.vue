@@ -10,15 +10,15 @@
 
       <div class="stat-row">
         <div class="stat-card new-songs">
-          <p class="value">156</p>
+          <p class="value">0</p>
           <p class="label">New Songs This Month</p>
         </div>
         <div class="stat-card active-days">
-          <p class="value">19</p>
+          <p class="value">0</p>
           <p class="label">Active Days</p>
         </div>
         <div class="stat-card achievements">
-          <p class="value">3</p>
+          <p class="value">0</p>
           <p class="label">New Achievements</p>
         </div>
       </div>
