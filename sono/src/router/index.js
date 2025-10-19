@@ -27,6 +27,11 @@ const router = createRouter({
       // which is lazy-loaded when the route is visited.
       component: () => import('../views/ContactView.vue'),
     },
+    {
+      path: '/spotify-callback',
+      name: 'spotify-callback',
+      component: () => import('../views/SpotifyCallback.vue'),
+    },
   ],
 })
 

@@ -17,15 +17,24 @@
         <RouterLink class="link" to="/mood-calendar">Mood Calendar</RouterLink>
       </nav>
 
-      <RouterLink class="icon-btn" to="/profile" aria-label="Profile">
-        <img src="/User.svg" alt="User Profile" class="profile-icon" />
-      </RouterLink>
+      <div class="right-actions">
+        <RouterLink class="icon-btn" to="/profile" aria-label="Profile">
+          <img src="/User.svg" alt="User Profile" class="profile-icon" />
+        </RouterLink>
+
+        <button class="spotify-btn" @click="isAuthenticated ? logout() : login()">
+          {{ isAuthenticated ? 'Logout' : 'Login with Spotify' }}
+        </button>
+      </div>
     </div>
   </header>
 </template>
 
 <script setup>
 import { RouterLink } from 'vue-router'
+import { useSpotifyAuth } from '../composables/useSpotifyAuth'
+
+const { isAuthenticated, login, logout } = useSpotifyAuth()
 </script>
 
 <style scoped>
@@ -114,6 +123,26 @@ import { RouterLink } from 'vue-router'
   width: 48px;
   height: 48px;
 }
+
+/* --- Spotify button --- */
+.right-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.spotify-btn {
+  background: linear-gradient(90deg, #1db954, #1ed760);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+
+.spotify-btn:hover { transform: translateY(-2px); opacity: 0.95 }
 
 /* --- Mobile --- */
 @media (max-width: 640px) {
