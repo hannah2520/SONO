@@ -1,4 +1,5 @@
 <!-- this is the home page -->
+
 <template>
   <main class="home-page">
     <div class="content">

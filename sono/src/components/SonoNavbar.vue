@@ -17,7 +17,7 @@
         <RouterLink class="link" to="/mood-calendar">Mood Calendar</RouterLink>
       </nav>
 
-      <RouterLink class="icon-btn" to="/profile" aria-label="Profile">
+      <RouterLink class="icon-btn" to="/profile" aria-label="Profile" @click="login">
         <img src="/User.svg" alt="User Profile" class="profile-icon" />
       </RouterLink>
     </div>
@@ -26,6 +26,8 @@
 
 <script setup>
 import { RouterLink } from 'vue-router'
+import { useSpotifyAuth } from '@/composables/useSpotifyAuth'
+const { login } = useSpotifyAuth()
 </script>
 
 <style scoped>
