@@ -10,15 +10,15 @@
 
       <div class="stat-row">
         <div class="stat-card new-songs">
-          <p class="value">0</p>
+          <p class="value">{{ stats.newSongs }}</p>
           <p class="label">New Songs This Month</p>
         </div>
         <div class="stat-card active-days">
-          <p class="value">0</p>
+          <p class="value">{{ stats.activeDays }}</p>
           <p class="label">Active Days</p>
         </div>
         <div class="stat-card achievements">
-          <p class="value">0</p>
+          <p class="value">{{ stats.achievements }}</p>
           <p class="label">New Achievements</p>
         </div>
       </div>
@@ -72,10 +72,25 @@
   </section>
 </template>
 
-<script>
-export default {
-  name: 'MoodCalendar'
-}
+<script setup>
+import { reactive, onMounted } from 'vue'
+
+// Local reactive stats object — replace onMounted with real data fetch or connect to Pinia
+const stats = reactive({
+  newSongs: 0,
+  activeDays: 0,
+  achievements: 0,
+})
+
+onMounted(() => {
+  // Example placeholder: simulate fetching stats
+  // Replace with actual API or Pinia store wiring
+  // setTimeout(() => {
+  //   stats.newSongs = 156
+  //   stats.activeDays = 19
+  //   stats.achievements = 3
+  // }, 200)
+})
 </script>
 
 <style scoped>
