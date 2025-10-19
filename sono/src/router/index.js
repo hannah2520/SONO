@@ -5,6 +5,7 @@ import HomeView from '../views/HomeView.vue'
 import MoodCalendar from '../views/MoodCalendar.vue'
 import AddPlaylist from '../views/AddPlaylist.vue';
 
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -16,34 +17,33 @@ const router = createRouter({
     {
       path: '/about',
       name: 'about',
-      // route level code-splitting
-      // this generates a separate chunk (About.[hash].js) for this route
-      // which is lazy-loaded when the route is visited.
       component: () => import('../views/AboutView.vue'),
     },
     {
-  path: '/mood-calendar',
-  name: 'moodcalendar',
-  component: MoodCalendar,
-},
-{
-  path: '/add-playlist',
-  name: 'addplaylist',
-  component: AddPlaylist,
-},
+      path: '/mood-calendar',
+      name: 'moodcalendar',
+      component: MoodCalendar,
+    },
+    {
+      path: '/add-playlist',
+      name: 'addplaylist',
+      component: AddPlaylist,
+    },
+    {
+      path: '/discover',
+      name: 'musicrecommendation',
+      component: () => import('../views/MusicRecommendation.vue'),
+    },
     {
       path: '/contact',
       name: 'contact',
-      // route level code-splitting
-      // this generates a separate chunk (About.[hash].js) for this route
-      // which is lazy-loaded when the route is visited.
       component: () => import('../views/ContactView.vue'),
     },
     {
       path: '/callback',
       component: () => import('@/views/SpotifyCallback.vue'),
     },
-],
+  ],
 })
 
 export default router

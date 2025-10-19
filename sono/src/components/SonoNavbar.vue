@@ -6,10 +6,10 @@
     </div>
 
     <ul class="nav-links">
-  <li><RouterLink to="/discover" class="gradient-btn active">Discover</RouterLink></li>
-  <li><RouterLink to="/">Home</RouterLink></li>
-  <li><RouterLink to="/mood-calendar">Mood Calendar</RouterLink></li>
-  <li><RouterLink to="/add-playlist">Add Playlist</RouterLink></li>
+      <li><RouterLink to="/discover" class="gradient-btn">Discover</RouterLink></li>
+      <li><RouterLink to="/">Home</RouterLink></li>
+      <li><RouterLink to="/mood-calendar">Mood Calendar</RouterLink></li>
+      <li><RouterLink to="/add-playlist">Add Playlist</RouterLink></li>
     </ul>
 
     <div class="action-section">
