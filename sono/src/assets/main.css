@@ -2,33 +2,24 @@
 /* unless you know its gonna be used everywhere, put your styles in ur specific page/component */
 
 /* @import './base.css'; */
-@font-face {
-  font-family: 'Arial Nova';
-  src: url('./ArialNova.ttf') format('truetype');
-}
-body, p{
-  font-family: 'Arial Nova', sans-serif;
+
+/* ensure the app fills the viewport and reset default spacing */
+html, body, #app, #app-root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
-h1,
-h2,
-h3 {
-  font-family: 'Milker';
-  src: url('./Milker.otf') format('opentype');
+#app {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-weight: normal;
 }
-h4,
-h5,
-h6 {
-  font-family: 'monorail';
-  src:url('./Monorail.otf') format('opentype');
-}
-/* #app {
-  /* max-width: 1280px; */
-/* margin: 0 auto; */
-/* padding: 2rem; */
-/* font-weight: normal; */
 
-/* a,
+a,
 .green {
   text-decoration: none;
   color: hsla(160, 100%, 37%, 1);
@@ -42,15 +33,4 @@ h6 {
   }
 }
 
-@media (min-width: 1024px) {
-  body {
-    display: flex;
-    place-items: center;
-  } */
-
-/* #app {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding: 0 2rem;
-  } */
-/* } */
+/* avoid vertically centering the app; allow full-height layout to control positioning */

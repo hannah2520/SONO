@@ -1,13 +1,19 @@
 <!-- our footer component, what you see on the page -->
 <template>
   <footer class="sono-footer">
-    <p>&copy; 2024 Sono. All rights reserved.</p>
+    <p>&copy; {{ year }} Sono.</p>
   </footer>
 </template>
 
 <script>
 export default {
   name: 'SonoFooter'
+  ,
+  data() {
+    return {
+      year: new Date().getFullYear()
+    }
+  }
 }
 </script>
 

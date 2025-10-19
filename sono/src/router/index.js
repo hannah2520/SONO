@@ -2,6 +2,8 @@
 // this is the logic behind navbar, how it actually works
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
+import MoodCalendar from '../views/MoodCalendar.vue'
+import AddPlaylist from '../views/AddPlaylist.vue';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -20,6 +22,16 @@ const router = createRouter({
       component: () => import('../views/AboutView.vue'),
     },
     {
+  path: '/mood-calendar',
+  name: 'moodcalendar',
+  component: MoodCalendar,
+},
+{
+  path: '/add-playlist',
+  name: 'addplaylist',
+  component: AddPlaylist,
+}
+    {
       path: '/contact',
       name: 'contact',
       // route level code-splitting
@@ -31,7 +43,7 @@ const router = createRouter({
       path: '/callback',
       component: () => import('@/views/SpotifyCallback.vue'),
     },
-  ],
+],
 })
 
 export default router
