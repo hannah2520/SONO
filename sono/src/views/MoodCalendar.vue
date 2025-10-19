@@ -1,9 +1,10 @@
 <template>
   <section class="mood-calendar">
     <h1 class="title">MOOD CALENDAR</h1>
-    <p class="subtitle">
-      Track your musical journey, <span>build listening streaks</span>, and visualize your mood patterns over time.
-    </p>
+    <h6>
+      Track your musical journey, <span>build listening streaks</span>, and visualize your mood
+      patterns over time.
+    </h6>
 
     <div class="calendar-header">
       <div class="stat-card new-songs">
@@ -31,7 +32,7 @@
 </template>
 
 <script setup>
-const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 </script>
 
 <style scoped>
@@ -42,19 +43,23 @@ const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   flex: 1 1 auto;
   min-height: 0; /* allow parent flex to control height */
   padding: 1rem; /* reduced padding to minimize white space */
-  background: linear-gradient(to bottom, #b2f1e7, #d3eaff);
+  inset: 0; /* fill the page area */
+  z-index: -1; /* behind the page content */
+  pointer-events: none;
+  /* Use the SVG from public/ as a full-width background */
+  background-image: url('/backgroundHome.svg');
+  background-repeat: no-repeat;
+  background-position: center top;
+  background-size: 100% auto; /* width: 100% of the page, height scales to preserve aspect */
+  opacity: 0.95;
   text-align: center;
-  font-family: 'Helvetica Neue', sans-serif;
+  /* font-family: 'Helvetica Neue', sans-serif; */
 }
 
 .title {
   font-size: 2.2rem;
   font-weight: bold;
-  background: linear-gradient(to right, #2cccd3, #9cbae7);
-  /* define standard property and vendor-prefixed version for compatibility */
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--confident);
   margin-bottom: 0.5rem;
 }
 

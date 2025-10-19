@@ -1,10 +1,40 @@
-/* this will be our global css file, basically every style we want on the whole project will go here. */
-/* unless you know its gonna be used everywhere, put your styles in ur specific page/component */
+:root {
+  --euphoric:#a18dd6;
+  --melancholy: #89c1f5;
+  --serene: #90e6d5;
+  --flirty: #f584b1;
+  --hype: #f58b27;
+  --balanced: #efeeeb;
+  --pure: #ffffff;
+  --bold: #000000;
+  --confident: #8b55f3;
+}
 
-/* @import './base.css'; */
+@font-face {
+  font-family: 'Arial Nova';
+  src: url('./ArialNova.ttf') format('truetype');
+}
 
-/* ensure the app fills the viewport and reset default spacing */
-html, body, #app, #app-root {
+@font-face {
+  font-family: 'Monorail';
+  src: url('./monotail-script.regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Milker';
+  src: url('./Milker.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+html,
+body,
+#app,
+#app-root {
   height: 100%;
   margin: 0;
   padding: 0;
@@ -26,11 +56,14 @@ a,
   transition: 0.4s;
   padding: 3px;
 }
-@font-face {
-  font-family: 'Arial Nova';
-  src: url('./ArialNova.ttf') format('truetype');
+
+h6 {
+  font-family: 'Monorail', 'Arial Nova', system-ui, sans-serif;
 }
-body, p{
+
+body,
+p,
+li {
   font-family: 'Arial Nova', sans-serif;
 }
 
@@ -40,11 +73,12 @@ h3 {
   font-family: 'Milker';
   src: url('./Milker.otf') format('opentype');
 }
+
 h4,
 h5,
 h6 {
   font-family: 'monorail';
-  src:url('./Monorail.otf') format('opentype');
+  src: url('./monotail-script.regular.otf') format('opentype');
 }
 
 @media (hover: hover) {
