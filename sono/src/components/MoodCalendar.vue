@@ -10,15 +10,15 @@
 
       <div class="stat-row">
         <div class="stat-card new-songs">
-          <p class="value">{{ stats.newSongs }}</p>
+          <p class="value">{{ newSongs }}</p>
           <p class="label">New Songs This Month</p>
         </div>
         <div class="stat-card active-days">
-          <p class="value">{{ stats.activeDays }}</p>
+          <p class="value">{{ activeDays }}</p>
           <p class="label">Active Days</p>
         </div>
         <div class="stat-card achievements">
-          <p class="value">{{ stats.achievements }}</p>
+          <p class="value">{{ achievements }}</p>
           <p class="label">New Achievements</p>
         </div>
       </div>
@@ -129,6 +129,7 @@ onMounted(async () => {
 .stat-row {
   display: flex;
   gap: 0.6rem;
+  justify-content: center;
 }
 
 .stat-card {
