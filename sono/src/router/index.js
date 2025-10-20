@@ -37,6 +37,11 @@ const router = createRouter({
       name: 'mood-calendar',
       component: () => import('../views/MoodCalendar.vue'),
     },
+    {
+      path: '/discover',
+      name: 'discover',
+      component: () => import('../views/MusicRecommendation.vue'),
+    },
   ],
 })
 
