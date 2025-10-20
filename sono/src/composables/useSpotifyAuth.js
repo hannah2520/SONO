@@ -115,7 +115,7 @@ async function handleRedirectCallback() {
   // Call this on the redirect page (redirect_uri) to exchange code for tokens.
   const params = new URLSearchParams(window.location.search)
   const code = params.get('code')
-  const state = params.get('state')
+  // const state = params.get('state')
   const error = params.get('error')
 
   if (error) {
