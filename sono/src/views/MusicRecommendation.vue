@@ -109,7 +109,7 @@ function updateRecommendations() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: #1e1e1e;
+  background: linear-gradient(90deg, var(--confident) 0%, var(--euphoric) 60%, var(--flirty) 100%);
   padding: 1rem;
   border-radius: 1rem;
   text-align: center;
@@ -201,3 +201,4 @@ function updateRecommendations() {
   color: #ccc;
 }
 </style>
+
