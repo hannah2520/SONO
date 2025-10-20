@@ -50,7 +50,6 @@ const router = createRouter({
       component: () => import('../views/MoodCalendar.vue'),
     },
   ],
-  ],
 })
 
 export default router

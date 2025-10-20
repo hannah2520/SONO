@@ -54,6 +54,6 @@
   font-size: 20px;
   line-height: 1.6;
   text-align: center;
-  color: rgba(255, 255, 255, 0.95);
+  color: rgba(255,255,255,0.95);
 }
 </style>
