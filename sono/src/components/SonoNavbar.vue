@@ -17,14 +17,19 @@
         ><img src="/connectSpotifyButton.svg"
       /></RouterLink>
       <RouterLink to="/profile"><img src="/User.svg" /></RouterLink>
+
+      <button class="spotify-btn" @click="isAuthenticated ? logout() : login()">
+        {{ isAuthenticated ? 'Logout' : 'Login with Spotify' }}
+      </button>
     </div>
   </nav>
 </template>
 
-<script>
-export default {
-  name: 'SonoNavbar',
-}
+<script setup>
+import { RouterLink } from 'vue-router'
+import { useSpotifyAuth } from '../composables/useSpotifyAuth'
+
+const { isAuthenticated, login, logout } = useSpotifyAuth()
 </script>
 
 <style scoped>
@@ -33,12 +38,7 @@ export default {
   justify-content: space-between;
   align-items: center;
   /* darker gradient using EUpHORIC palette (keeps white text readable) */
-  background: linear-gradient(
-    90deg,
-    var(--confident) 0%,
-    var(--euphoric) 60%,
-    var(--flirty) 100%
-  );
+  background: linear-gradient(90deg, var(--confident) 0%, var(--euphoric) 60%, var(--flirty) 100%);
   color: #fff;
   padding: 1rem 2rem;
   border-bottom: none;
@@ -117,6 +117,61 @@ export default {
 .profile-icon {
   width: 28px;
   height: 28px;
+}
+
+/* --- Spotify button --- */
+.right-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.spotify-btn {
+  background: linear-gradient(90deg, #1db954, #1ed760);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 0.12s ease,
+    opacity 0.12s ease;
+}
+
+.spotify-btn:hover {
+  transform: translateY(-2px);
+  opacity: 0.95;
+}
+
+/* --- Spotify button --- */
+.right-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.spotify-btn {
+  background: linear-gradient(90deg, #1db954, #1ed760);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 0.12s ease,
+    opacity 0.12s ease;
+}
+
+.spotify-btn:hover {
+  transform: translateY(-2px);
+  opacity: 0.95;
+}
+
+.profile-icon {
+  width: 48px;
+  height: 48px;
 }
 
 .profile-initials {
