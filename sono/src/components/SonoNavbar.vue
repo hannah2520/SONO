@@ -3,11 +3,11 @@
     <!-- Logo -->
     <div class="logo-section">
       <img
-        src="@/assets/sono_brandmark_white_logo_only.png"
+        src="/logo.svg"
         alt="SONO Logo"
         class="logo-icon"
       />
-      <span class="logo-text">SONO</span>
+      <!-- <span class="logo-text">SONO</span> -->
     </div>
 
     <!-- Navigation Links -->
@@ -28,6 +28,11 @@
       <li>
         <RouterLink to="/add-playlist" :class="{ active: isActive('/add-playlist') }">
           Add Playlist
+        </RouterLink>
+      </li>
+      <li>
+        <RouterLink to="/about" :class="{ active: isActive('/about') }">
+          About SONO
         </RouterLink>
       </li>
     </ul>
@@ -76,18 +81,11 @@ const isActive = (path) => route.path === path
 }
 
 .logo-icon {
-  width: 48px;
-  height: 48px;
-  margin-right: 12px;
+  width: 60px;
+  height: 60px;
+  /* margin-right: 12px; */
   object-fit: contain;
   filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
-}
-
-.logo-text {
-  font-size: 1.25rem;
-  font-weight: 800;
-  color: rgba(255, 255, 255, 0.95);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 .nav-links {

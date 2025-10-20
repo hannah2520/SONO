@@ -1,7 +1,7 @@
 <!-- our footer component, what you see on the page -->
 <template>
   <footer class="sono-footer">
-    <p>&copy; {{ year }} Sono.</p>
+    <p>&copy; {{ year }} SONO.</p>
   </footer>
 </template>
 
