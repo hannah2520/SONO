@@ -2,9 +2,6 @@
 // this is the logic behind navbar, how it actually works
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
-import MoodCalendar from '../views/MoodCalendar.vue'
-import AddPlaylist from '../views/AddPlaylist.vue';
-
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -19,16 +16,7 @@ const router = createRouter({
       name: 'about',
       component: () => import('../views/AboutView.vue'),
     },
-    {
-      path: '/mood-calendar',
-      name: 'moodcalendar',
-      component: MoodCalendar,
-    },
-    {
-      path: '/add-playlist',
-      name: 'addplaylist',
-      component: AddPlaylist,
-    },
+
     {
       path: '/discover',
       name: 'musicrecommendation',
@@ -40,7 +28,7 @@ const router = createRouter({
       component: () => import('../views/ContactView.vue'),
     },
     {
-      path: '/spotify-callback',
+      path: '/callback',
       name: 'spotify-callback',
       component: () => import('../views/SpotifyCallback.vue'),
     },
@@ -48,6 +36,11 @@ const router = createRouter({
       path: '/mood-calendar',
       name: 'mood-calendar',
       component: () => import('../views/MoodCalendar.vue'),
+    },
+    {
+      path: '/add-playlist',
+      name: 'add-playlist',
+      component: () => import('../views/AddPlaylist.vue'),
     },
   ],
 })

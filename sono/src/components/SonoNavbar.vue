@@ -1,31 +1,63 @@
 <template>
   <nav class="navbar">
+    <!-- Logo -->
     <div class="logo-section">
-      <img src="@/assets/sono_brandmark_white_logo_only.png" alt="SONO Logo" class="logo-icon" />
+      <img
+        src="@/assets/sono_brandmark_white_logo_only.png"
+        alt="SONO Logo"
+        class="logo-icon"
+      />
       <span class="logo-text">SONO</span>
     </div>
 
+    <!-- Navigation Links -->
     <ul class="nav-links">
-      <li><RouterLink to="/discover" class="gradient-btn active">Discover</RouterLink></li>
-      <li><RouterLink to="/">Home</RouterLink></li>
-      <li><RouterLink to="/mood-calendar">Mood Calendar</RouterLink></li>
-      <li><RouterLink to="/add-playlist">Add Playlist</RouterLink></li>
+      <li>
+        <RouterLink to="/discover" class="gradient-btn" :class="{ active: isActive('/discover') }">
+          Discover
+        </RouterLink>
+      </li>
+      <li>
+        <RouterLink to="/" :class="{ active: isActive('/') }">Home</RouterLink>
+      </li>
+      <li>
+        <RouterLink to="/mood-calendar" :class="{ active: isActive('/mood-calendar') }">
+          Mood Calendar
+        </RouterLink>
+      </li>
+      <li>
+        <RouterLink to="/add-playlist" :class="{ active: isActive('/add-playlist') }">
+          Add Playlist
+        </RouterLink>
+      </li>
     </ul>
 
+    <!-- Actions: Spotify + Profile -->
     <div class="action-section">
-      <RouterLink to="/UserSpotifyAuthentication" @click="isAuthenticated ? logout() : login()"
-        ><img src="/connectSpotifyButton.svg" v-if="!isAuthenticated"
-      /></RouterLink>
-      <RouterLink to="/profile"><img src="/User.svg" /></RouterLink>
+      <button v-if="!isAuthenticated" class="spotify-btn" @click="login">
+        Connect Spotify
+      </button>
+      <button v-else class="spotify-btn" @click="logout">
+        Logout
+      </button>
+
+      <RouterLink to="/profile">
+        <img src="/User.svg" class="profile-icon" />
+      </RouterLink>
     </div>
   </nav>
 </template>
 
 <script setup>
-import { RouterLink } from 'vue-router'
+import { useRoute, RouterLink } from 'vue-router'
 import { useSpotifyAuth } from '../composables/useSpotifyAuth'
 
 const { isAuthenticated, login, logout } = useSpotifyAuth()
+
+const route = useRoute()
+
+// Highlight active links
+const isActive = (path) => route.path === path
 </script>
 
 <style scoped>
@@ -33,12 +65,9 @@ const { isAuthenticated, login, logout } = useSpotifyAuth()
   display: flex;
   justify-content: space-between;
   align-items: center;
-  /* darker gradient using EUpHORIC palette (keeps white text readable) */
   background: linear-gradient(90deg, var(--confident) 0%, var(--euphoric) 60%, var(--flirty) 100%);
   color: #fff;
   padding: 1rem 2rem;
-  border-bottom: none;
-  /* font-family: 'Helvetica Neue', sans-serif; */
 }
 
 .logo-section {
@@ -101,35 +130,6 @@ const { isAuthenticated, login, logout } = useSpotifyAuth()
 }
 
 .spotify-btn {
-  padding: 0.5rem 1rem;
-  font-weight: 600;
-  transition: all 0.18s ease;
-}
-
-.spotify-btn:hover {
-  background: #fdfdfd;
-}
-
-.profile-icon {
-  width: 28px;
-  height: 28px;
-}
-
-/* --- Spotify button --- */
-.right-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-/* --- Spotify button --- */
-.right-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.spotify-btn {
   background: linear-gradient(90deg, #1db954, #1ed760);
   color: white;
   border: none;
@@ -137,9 +137,7 @@ const { isAuthenticated, login, logout } = useSpotifyAuth()
   border-radius: 8px;
   font-weight: 600;
   cursor: pointer;
-  transition:
-    transform 0.12s ease,
-    opacity 0.12s ease;
+  transition: transform 0.12s ease, opacity 0.12s ease;
 }
 
 .spotify-btn:hover {
@@ -150,17 +148,5 @@ const { isAuthenticated, login, logout } = useSpotifyAuth()
 .profile-icon {
   width: 48px;
   height: 48px;
-}
-
-.profile-initials {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: linear-gradient(90deg, #c471ed, #f64f59);
-  color: #fff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
 }
 </style>

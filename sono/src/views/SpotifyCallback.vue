@@ -20,7 +20,7 @@ onMounted(async () => {
   try {
     await handleRedirectCallback()
     // optionally redirect back to the page stored in state or to home
-    router.replace({ name: 'home' })
+    router.replace({ name: 'musicrecommendation' })
   } catch (e) {
     error.value = e?.message || String(e)
     // stay on this page so the user can see the error, or navigate back after a timeout
