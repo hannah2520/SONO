@@ -24,9 +24,9 @@
   min-height: 100vh; /* makes it fill full viewport */
   background: linear-gradient(
     135deg,
-    var(--flirty),
+    var(--serene),
     var(--euphoric),
-    var(--melancholy)
+    var(--hype)
   );
   color: #fff;
   text-align: center;

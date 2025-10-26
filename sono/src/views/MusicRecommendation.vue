@@ -32,7 +32,7 @@
           <div class="cover-wrap">
             <img :src="item.image" :alt="`${item.title} cover`" />
           </div>
-          <a class="title" href="#" @click.prevent>{{ item.title }}</a>
+          <a class="title">{{ item.title }}</a>
           <p class="artist">{{ item.artist }}</p>
         </article>
       </section>
@@ -73,7 +73,7 @@ async function searchSpotify() {
     tracks.value = data.tracks.items.map(track => ({
       title: track.name,
       artist: track.artists.map(a => a.name).join(', '),
-      image: track.album.images[0]?.url || ''
+      image: track.album.images[0]?.url
     }))
     batchIndex = 0
     updateRecommendations()
@@ -97,7 +97,6 @@ function updateRecommendations() {
 </script>
 
 <style scoped>
-/* Recommendations Grid */
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -119,7 +118,7 @@ function updateRecommendations() {
 
 .tile:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(0,0,0,0.25);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
 }
 
 .cover-wrap {
@@ -146,10 +145,9 @@ function updateRecommendations() {
 .artist {
   color: #ccc;
   font-size: 0.875rem;
-  line-height: 1.2rem;
 }
 
-/* Minimal addition for search bar */
+/* Search bar */
 .search-bar {
   display: flex;
   gap: 12px;
@@ -177,10 +175,12 @@ function updateRecommendations() {
   border: none;
   cursor: pointer;
   font-weight: 700;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .search-bar button:hover:not(:disabled) {
-  background: linear-gradient(90deg, #b45fff, #ff8ad4);
+  transform: translateY(-2px);
+  opacity: 0.9;
 }
 
 .search-bar button:disabled {
@@ -201,4 +201,3 @@ function updateRecommendations() {
   color: #ccc;
 }
 </style>
-

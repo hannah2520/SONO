@@ -24,4 +24,8 @@ export default {
   background: #f5f5f5;
   color: #333;
 }
+.active {
+  box-shadow: 3px 3px 8px rgba(0, 0, 0, 0.2);
+}
+
 </style>
