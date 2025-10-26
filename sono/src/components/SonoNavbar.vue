@@ -2,12 +2,7 @@
   <nav class="navbar">
     <!-- Logo -->
     <div class="logo-section">
-      <img
-        src="@/assets/sono_brandmark_white_logo_only.png"
-        alt="SONO Logo"
-        class="logo-icon"
-      />
-      <span class="logo-text">SONO</span>
+      <img src="/logo.svg" alt="SONO Logo" class="logo-icon" />
     </div>
 
     <!-- Navigation Links -->
@@ -17,9 +12,7 @@
           Discover
         </RouterLink>
       </li>
-      <li>
-        <RouterLink to="/" :class="{ active: isActive('/') }">Home</RouterLink>
-      </li>
+      <li><RouterLink to="/" :class="{ active: isActive('/') }">Home</RouterLink></li>
       <li>
         <RouterLink to="/mood-calendar" :class="{ active: isActive('/mood-calendar') }">
           Mood Calendar
@@ -30,6 +23,7 @@
           Add Playlist
         </RouterLink>
       </li>
+      <li><RouterLink to="/about" :class="{ active: isActive('/about') }">About</RouterLink></li>
     </ul>
 
     <!-- Actions: Spotify + Profile -->
@@ -53,10 +47,8 @@ import { useRoute, RouterLink } from 'vue-router'
 import { useSpotifyAuth } from '../composables/useSpotifyAuth'
 
 const { isAuthenticated, login, logout } = useSpotifyAuth()
-
 const route = useRoute()
 
-// Highlight active links
 const isActive = (path) => route.path === path
 </script>
 
@@ -67,7 +59,7 @@ const isActive = (path) => route.path === path
   align-items: center;
   background: linear-gradient(90deg, var(--confident) 0%, var(--euphoric) 60%, var(--flirty) 100%);
   color: #fff;
-  padding: 1rem 2rem;
+  padding: auto;
 }
 
 .logo-section {
@@ -76,18 +68,12 @@ const isActive = (path) => route.path === path
 }
 
 .logo-icon {
-  width: 48px;
-  height: 48px;
+  width: 100px;
+  height: 100px;
+  margin: 0%;
   margin-right: 12px;
   object-fit: contain;
   filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
-}
-
-.logo-text {
-  font-size: 1.25rem;
-  font-weight: 800;
-  color: rgba(255, 255, 255, 0.95);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 .nav-links {
@@ -101,7 +87,7 @@ const isActive = (path) => route.path === path
   text-decoration: none;
   color: rgba(255, 255, 255, 0.95);
   font-size: 1rem;
-  transition: 0.2s ease;
+  transition: color 0.2s ease, opacity 0.2s ease;
 }
 
 .nav-links a:hover {
@@ -113,7 +99,6 @@ const isActive = (path) => route.path === path
   background: linear-gradient(90deg, #ff8ad4, #b45fff);
   color: white;
   padding: 0.5rem 1.2rem;
-  border: none;
   border-radius: 24px;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
   font-weight: 700;

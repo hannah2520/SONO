@@ -19,12 +19,12 @@ const error = ref(null)
 onMounted(async () => {
   try {
     await handleRedirectCallback()
-    // optionally redirect back to the page stored in state or to home
+    // redirect to the intended page or home after login
     router.replace({ name: 'musicrecommendation' })
   } catch (e) {
     error.value = e?.message || String(e)
-    // stay on this page so the user can see the error, or navigate back after a timeout
     console.error('Spotify callback error:', e)
+    // optionally redirect after a delay or keep user here to show error
   }
 })
 </script>
@@ -32,8 +32,6 @@ onMounted(async () => {
 <style scoped>
 .view-fill {
   display: flex;
-  flex: 1 1 auto;
-  min-height: 0;
   align-items: center;
   justify-content: center;
   padding: 1.25rem;
