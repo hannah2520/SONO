@@ -1,10 +1,7 @@
 <!-- our footer component, what you see on the page -->
 <template>
   <footer class="sono-footer">
-    <p>&copy; {{ year }} Sono.</p>
-    <!-- <RouterLink to="/contact" class="gradient-btn" :class="{ active: isActive('/contact') }">
-          Contact Us
-        </RouterLink> -->
+    <p>&copy; {{ year }} SONO.</p>
   </footer>
 </template>
 
