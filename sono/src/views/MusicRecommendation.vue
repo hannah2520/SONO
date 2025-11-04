@@ -8,7 +8,7 @@
 
       <!-- Login prompt if not authenticated -->
       <div v-if="!isAuthenticated" class="login-prompt">
-        <button @click="login" class="gradient-btn">Connect Spotify</button>
+        <button @click="login"><img src='/connectSpotifyButton.svg'/></button>
         <p>Please log in to see recommendations.</p>
       </div>
 
@@ -34,7 +34,15 @@
           </div>
           <a class="title">{{ item.title }}</a>
           <p class="artist">{{ item.artist }}</p>
+                  <iframe
+  :src="`https://open.spotify.com/embed/track/${item.track_id}`"
+  width="100%"
+  height="80"
+  frameborder="0"
+  allow="encrypted-media">
+</iframe>
         </article>
+
       </section>
     </main>
   </div>
@@ -73,7 +81,8 @@ async function searchSpotify() {
     tracks.value = data.tracks.items.map(track => ({
       title: track.name,
       artist: track.artists.map(a => a.name).join(', '),
-      image: track.album.images[0]?.url
+      image: track.album.images[0]?.url,
+      track_id: track.id
     }))
     batchIndex = 0
     updateRecommendations()
