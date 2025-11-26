@@ -43,9 +43,11 @@ const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   flex: 1 1 auto;
   min-height: 0; /* allow parent flex to control height */
   padding: 1rem; /* reduced padding to minimize white space */
-  inset: 0; /* fill the page area */
-  z-index: -1; /* behind the page content */
-  pointer-events: none;
+  /* leave placement to the layout (do not force negative z-index).
+     Keep the background visible and allow interactions. */
+  inset: auto;
+  z-index: 0;
+  pointer-events: auto;
   /* Use the SVG from public/ as a full-width background */
   background-image: url('/backgroundHome.svg');
   background-repeat: no-repeat;
@@ -53,7 +55,6 @@ const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   background-size: 100% auto; /* width: 100% of the page, height scales to preserve aspect */
   opacity: 0.95;
   text-align: center;
-  /* font-family: 'Helvetica Neue', sans-serif; */
 }
 
 .title {

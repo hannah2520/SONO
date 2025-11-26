@@ -34,38 +34,39 @@
           </div>
           <a class="title">{{ item.title }}</a>
           <p class="artist">{{ item.artist }}</p>
-                  <iframe
-  :src="`https://open.spotify.com/embed/track/${item.track_id}`"
-  width="100%"
-  height="80"
-  frameborder="0"
-  allow="encrypted-media">
-</iframe>
+          <iframe
+            :src="`https://open.spotify.com/embed/track/${item.track_id}`"
+            width="100%"
+            height="80"
+            frameborder="0"
+            allow="encrypted-media">
+          </iframe>
         </article>
-
       </section>
     </main>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useSpotifyAuth } from '@/composables/useSpotifyAuth'
 
-const { isAuthenticated, login, getAccessToken } = useSpotifyAuth()
-
+const { isAuthenticated, login, getAccessToken, handleRedirectCallback } = useSpotifyAuth()
 const searchTerm = ref('')
 const tracks = ref([])
 const recommendations = ref([])
 let batchIndex = 0
 
-// Search Spotify for tracks
+onMounted(async () => {
+  try {
+    await handleRedirectCallback()
+  } catch (err) {
+    console.error('Spotify callback failed:', err)
+  }
+})
 async function searchSpotify() {
   const token = await getAccessToken()
-  if (!token) {
-    console.warn('No Spotify token available. Please log in.')
-    return
-  }
+  if (!token) return
   if (!searchTerm.value) return
 
   try {
@@ -73,10 +74,6 @@ async function searchSpotify() {
       `https://api.spotify.com/v1/search?q=${encodeURIComponent(searchTerm.value)}&type=track&limit=50`,
       { headers: { Authorization: `Bearer ${token}` } }
     )
-    if (!res.ok) {
-      const txt = await res.text()
-      throw new Error(`Spotify search failed: ${res.status} ${txt}`)
-    }
     const data = await res.json()
     tracks.value = data.tracks.items.map(track => ({
       title: track.name,
@@ -87,11 +84,10 @@ async function searchSpotify() {
     batchIndex = 0
     updateRecommendations()
   } catch (err) {
-    console.error('Spotify search error:', err)
+    console.error(err)
   }
 }
 
-// Show next batch of 3 tracks
 function showNextBatch() {
   if (!tracks.value.length) return
   batchIndex += 3
@@ -99,35 +95,89 @@ function showNextBatch() {
   updateRecommendations()
 }
 
-// Update recommendations with current batch
 function updateRecommendations() {
   recommendations.value = tracks.value.slice(batchIndex, batchIndex + 3)
 }
 </script>
 
 <style scoped>
+:root {
+  --euphoric:#a18dd6;
+  --confident: #8b55f3;
+  --flirty: #f584b1;
+}
+
+.discover-page {
+  min-height: 100vh;
+  background: radial-gradient(circle at center, var(--euphoric), var(--confident), var(--flirty));
+  padding: 2rem 1.5rem;
+}
+
+/* Header */
+.content-header {
+  margin-bottom: 1.5rem;
+}
+
+.section-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  background: linear-gradient(90deg, var(--confident), var(--euphoric), var(--flirty));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Search bar */
+.search-bar {
+  display: flex;
+  gap: 12px;
+  margin: 1.5rem 0;
+}
+
+.search-bar input {
+  flex: 1;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(10px);
+  color: #fff;
+}
+
+.search-bar input::placeholder {
+  color: rgba(255,255,255,0.6);
+}
+
+.search-bar button {
+  padding: 0.5rem 1.2rem;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+  color: white;
+  background: linear-gradient(90deg, var(--confident), var(--euphoric), var(--flirty));
+}
+
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1.5rem;
-  margin-top: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.8rem;
 }
 
 .tile {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  border-radius: 1rem;
+  padding: 1rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: linear-gradient(90deg, var(--confident) 0%, var(--euphoric) 60%, var(--flirty) 100%);
-  padding: 1rem;
-  border-radius: 1rem;
-  text-align: center;
-  transition: transform 0.2s, box-shadow 0.2s;
   cursor: pointer;
+  transition: transform 0.25s, box-shadow 0.25s;
 }
 
 .tile:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 16px 30px rgba(0,0,0,0.35);
 }
 
 .cover-wrap {
@@ -136,6 +186,7 @@ function updateRecommendations() {
   overflow: hidden;
   border-radius: 1rem;
   margin-bottom: 0.8rem;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
 }
 
 .cover-wrap img {
@@ -148,7 +199,6 @@ function updateRecommendations() {
   font-weight: 700;
   color: #fff;
   margin-bottom: 0.4rem;
-  text-decoration: none;
 }
 
 .artist {
@@ -156,48 +206,6 @@ function updateRecommendations() {
   font-size: 0.875rem;
 }
 
-/* Search bar */
-.search-bar {
-  display: flex;
-  gap: 12px;
-  margin: 16px 0;
-}
-
-.search-bar input {
-  flex: 1;
-  padding: 0.5rem 1rem;
-  border-radius: 999px;
-  border: 1px solid #ccc;
-  font-size: 1rem;
-}
-
-.search-bar input:focus {
-  border-color: #6aaedd;
-  box-shadow: 0 0 0 2px rgba(106, 174, 221, 0.3);
-}
-
-.search-bar button {
-  padding: 0.5rem 1.2rem;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #ff8ad4, #b45fff);
-  color: #fff;
-  border: none;
-  cursor: pointer;
-  font-weight: 700;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-.search-bar button:hover:not(:disabled) {
-  transform: translateY(-2px);
-  opacity: 0.9;
-}
-
-.search-bar button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Login prompt */
 .login-prompt {
   display: flex;
   flex-direction: column;

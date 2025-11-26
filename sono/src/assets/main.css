@@ -1,5 +1,5 @@
 :root {
-  --euphoric:#a18dd6;
+  --euphoric: #a18dd6;
   --melancholy: #89c1f5;
   --serene: #90e6d5;
   --flirty: #f584b1;
@@ -32,12 +32,19 @@
 }
 
 html,
-body,
-#app,
-#app-root {
-  height: 100%;
+body {
   margin: 0;
   padding: 0;
+  height: 100%;
+  /* full viewport */
+}
+
+#app {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  /* stack navbar + main content */
+  background: linear-gradient(135deg, var(--confident), var(--euphoric), var(--flirty));
 }
 
 #app {

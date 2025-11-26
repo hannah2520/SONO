@@ -1,11 +1,9 @@
 <template>
   <nav class="navbar">
-    <!-- Logo -->
     <div class="logo-section">
       <img src="/logo.svg" alt="SONO Logo" class="logo-icon" />
     </div>
 
-    <!-- Navigation Links -->
     <ul class="nav-links">
       <li>
         <RouterLink to="/discover" class="gradient-btn" :class="{ active: isActive('/discover') }">
@@ -18,15 +16,10 @@
           Mood Calendar
         </RouterLink>
       </li>
-      <li>
-        <RouterLink to="/add-playlist" :class="{ active: isActive('/add-playlist') }">
-          Add Playlist
-        </RouterLink>
-      </li>
       <li><RouterLink to="/about" :class="{ active: isActive('/about') }">About</RouterLink></li>
+      <li><RouterLink to="/contact" :class="{ active: isActive('/contact') }">Contact</RouterLink></li>
     </ul>
 
-    <!-- Actions: Spotify + Profile -->
     <div class="action-section">
       <button v-if="!isAuthenticated" class="spotify-btn" @click="login">
         Connect Spotify
@@ -34,21 +27,16 @@
       <button v-else class="spotify-btn" @click="logout">
         Logout
       </button>
-
-      <RouterLink to="/profile">
-        <img src="/User.svg" class="profile-icon" />
-      </RouterLink>
     </div>
   </nav>
 </template>
 
 <script setup>
 import { useRoute, RouterLink } from 'vue-router'
-import { useSpotifyAuth } from '../composables/useSpotifyAuth'
+import { useSpotifyAuth } from '@/composables/useSpotifyAuth'
 
 const { isAuthenticated, login, logout } = useSpotifyAuth()
 const route = useRoute()
-
 const isActive = (path) => route.path === path
 </script>
 
@@ -57,55 +45,68 @@ const isActive = (path) => route.path === path
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: linear-gradient(90deg, var(--confident) 0%, var(--euphoric) 60%, var(--flirty) 100%);
-  color: #fff;
-  padding: auto;
+  /* glass effect: translucent background so page gradient shows through */
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(10px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 16px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+  padding: 1rem 2rem;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
-.logo-section {
-  display: flex;
-  align-items: center;
+.navbar:hover {
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }
 
 .logo-icon {
-  width: 100px;
-  height: 100px;
-  margin: 0%;
-  margin-right: 12px;
+  width: 80px;
+  height: 80px;
   object-fit: contain;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35));
 }
 
 .nav-links {
   display: flex;
   align-items: center;
   list-style: none;
-  gap: 2rem;
+  gap: 1.8rem;
 }
 
 .nav-links a {
   text-decoration: none;
-  color: rgba(255, 255, 255, 0.95);
+  color: rgba(255,255,255,0.9);
+  font-weight: 500;
   font-size: 1rem;
-  transition: color 0.2s ease, opacity 0.2s ease;
+  transition: color 0.2s ease, text-shadow 0.2s ease;
 }
 
 .nav-links a:hover {
   color: #fff;
-  opacity: 0.95;
+  text-shadow: 0 0 8px rgba(255,255,255,0.4);
 }
 
 .gradient-btn {
-  background: linear-gradient(90deg, #ff8ad4, #b45fff);
+  background: linear-gradient(90deg, var(--confident), var(--euphoric), var(--flirty));
   color: white;
   padding: 0.5rem 1.2rem;
   border-radius: 24px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
   font-weight: 700;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.gradient-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.25);
 }
 
 .active {
-  box-shadow: 3px 3px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0 12px rgba(255,255,255,0.4);
 }
 
 .action-section {
@@ -122,16 +123,12 @@ const isActive = (path) => route.path === path
   border-radius: 8px;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.12s ease, opacity 0.12s ease;
+  transition: transform 0.12s ease, opacity 0.12s ease, box-shadow 0.2s ease;
 }
 
 .spotify-btn:hover {
   transform: translateY(-2px);
   opacity: 0.95;
-}
-
-.profile-icon {
-  width: 48px;
-  height: 48px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.2);
 }
 </style>

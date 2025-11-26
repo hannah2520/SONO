@@ -91,6 +91,7 @@ async function buildAuthUrl({ scope = SCOPES, state = '' } = {}) {
   if (!CLIENT_ID) throw new Error('VITE_SPOTIFY_CLIENT_ID is not set')
   const verifier = randomString(128)
   sessionStorage.setItem(VERIFIER_KEY, verifier)
+  localStorage.setItem(VERIFIER_KEY, verifier)
   const challenge = await generateCodeChallenge(verifier)
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
