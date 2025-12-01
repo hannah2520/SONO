@@ -16,6 +16,11 @@
           Mood Calendar
         </RouterLink>
       </li>
+      <li>
+        <RouterLink to="/chatbot" :class="{ active: isActive('/chatbot') }">
+          AI Chatbot
+        </RouterLink>
+      </li>
       <li><RouterLink to="/about" :class="{ active: isActive('/about') }">About</RouterLink></li>
       <li><RouterLink to="/contact" :class="{ active: isActive('/contact') }">Contact</RouterLink></li>
     </ul>

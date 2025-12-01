@@ -26,6 +26,11 @@ const router = createRouter({
       name: 'add-playlist',
       component: () => import('../views/AddPlaylist.vue'),
     },
+    {
+      path: '/chatbot',
+      name: 'chatbot',
+      component: () => import('../views/ChatbotView.vue'),
+    },
   ],
 })
 
