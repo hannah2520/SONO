@@ -1,7 +1,7 @@
 <template>
   <nav class="navbar">
     <div class="logo-section">
-      <img src="/logo.svg" alt="SONO Logo" class="logo-icon" />
+      <img src="/logo.png" alt="SONO Logo" class="logo-icon" />
     </div>
 
     <ul class="nav-links">
@@ -45,12 +45,19 @@ const isActive = (path) => route.path === path
   display: flex;
   justify-content: space-between;
   align-items: center;
-  /* glass effect: translucent background so page gradient shows through */
-  background: rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(10px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 16px;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--confident) 80%, transparent),
+    color-mix(in srgb, var(--euphoric) 80%, transparent),
+    color-mix(in srgb, var(--flirty) 80%, transparent)
+  );
+  backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0 0 16px 16px;
+
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.10);
+
   padding: 1rem 2rem;
   position: sticky;
   top: 0;
@@ -58,8 +65,8 @@ const isActive = (path) => route.path === path
   transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
+
 .navbar:hover {
-  background: rgba(255, 255, 255, 0.15);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }
 
