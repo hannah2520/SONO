@@ -231,15 +231,20 @@ const sendMessage = async (textOverride = null) => {
           const jsonRaw = buf.slice(idx + TAIL_BEGIN.length, closeIdx)
           try {
             const payload = JSON.parse(jsonRaw)
+            console.log('🎯 Parsed payload:', payload)
+            console.log('🎭 Detected mood:', payload.mood)
             header.value = { mood: payload.mood, genres: payload.genres }
             detectedMood.value = payload.mood || '' // Store detected mood for button
+            console.log('✅ detectedMood.value set to:', detectedMood.value)
             tracks.value = payload.tracks || []
             
             // Save recommendations to shared state for discover page
             if (tracks.value.length > 0) {
               setMoodRecommendations(tracks.value, payload.mood, payload.genres)
             }
-          } catch {}
+          } catch (e) {
+            console.error('Failed to parse payload:', e)
+          }
           buf = buf.slice(closeIdx + TAIL_END.length)
         }
       } else {
