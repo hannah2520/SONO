@@ -4,10 +4,6 @@
       <!-- Header -->
       <div class="content-header">
         <h1 class="section-title">RECOMMENDED FOR YOU</h1>
-        <p v-if="currentMood" class="mood-subtitle">
-          Mood: <strong>{{ currentMood }}</strong>
-          <span v-if="currentGenres.length"> · Genres: <strong>{{ currentGenres.join(', ') }}</strong></span>
-        </p>
       </div>
 
       <!-- Login prompt if not authenticated -->
@@ -21,15 +17,12 @@
         <input
           type="text"
           v-model="searchTerm"
-          placeholder="Search by mood (e.g., happy, sad, energetic, chill)..."
-          @keyup.enter="searchByMood"
+          placeholder="Search Spotify..."
+          @keyup.enter="searchSpotify"
         />
-        <button @click="searchByMood">Search</button>
+        <button @click="searchSpotify">Search</button>
         <button class="refresh-btn" @click="showNextBatch" :disabled="!tracks.length">
-          Show More
-        </button>
-        <button v-if="recommendations.length" class="clear-btn" @click="clearRecommendations">
-          Clear
+          Refresh
         </button>
       </div>
 
@@ -50,25 +43,15 @@
           </iframe>
         </article>
       </section>
-
-      <!-- Empty state -->
-      <div v-if="isAuthenticated && !recommendations.length" class="empty-state">
-        <p>No recommendations yet. Visit the AI Chatbot to get mood-based music suggestions!</p>
-      </div>
     </main>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useSpotifyAuth } from '@/composables/useSpotifyAuth'
-import { useMoodRecommendations } from '@/composables/useMoodRecommendations'
-import { useRoute } from 'vue-router'
 
-const route = useRoute()
 const { isAuthenticated, login, getAccessToken, handleRedirectCallback } = useSpotifyAuth()
-const { moodRecommendations, currentMood, currentGenres, clearMoodRecommendations, setMoodRecommendations } = useMoodRecommendations()
-
 const searchTerm = ref('')
 const tracks = ref([])
 const recommendations = ref([])
@@ -80,107 +63,28 @@ onMounted(async () => {
   } catch (err) {
     console.error('Spotify callback failed:', err)
   }
-  
-  // Check if there's a mood query parameter
-  if (route.query.mood) {
-    searchTerm.value = route.query.mood
-  }
-  
-  // Load mood recommendations if available
-  if (moodRecommendations.value.length > 0) {
-    tracks.value = moodRecommendations.value.map(track => ({
-      title: track.name || track.title,
-      artist: track.artists || track.artist,
-      image: track.image,
-      track_id: track.id || track.track_id
-    }))
-    batchIndex = 0
-    updateRecommendations()
-  }
 })
+async function searchSpotify() {
+  const token = await getAccessToken()
+  if (!token) return
+  if (!searchTerm.value) return
 
-// Watch for mood recommendations changes
-watch(moodRecommendations, (newTracks) => {
-  if (newTracks && newTracks.length > 0) {
-    tracks.value = newTracks.map(track => ({
-      title: track.name || track.title,
-      artist: track.artists || track.artist,
-      image: track.image,
-      track_id: track.id || track.track_id
-    }))
-    batchIndex = 0
-    updateRecommendations()
-  }
-})
-
-async function searchByMood() {
-  if (!searchTerm.value.trim()) return
-  
-  console.log('🔍 Starting search for mood:', searchTerm.value)
-  
   try {
-    // Call backend API to get mood-based recommendations
-    const response = await fetch('http://127.0.0.1:3000/api/chat/stream', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        messages: [
-          { role: 'user', content: `I'm feeling ${searchTerm.value}` }
-        ]
-      })
-    })
-
-    console.log('📡 Response received, status:', response.status)
-
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-    let buf = ''
-    const TAIL_BEGIN = '<<<JSON:'
-    const TAIL_END = '>>>'
-
-    while (true) {
-      const { value, done } = await reader.read()
-      if (done) break
-      
-      const chunk = decoder.decode(value, { stream: true })
-      buf += chunk
-
-      const idx = buf.indexOf(TAIL_BEGIN)
-      if (idx !== -1) {
-        const closeIdx = buf.indexOf(TAIL_END, idx + TAIL_BEGIN.length)
-        if (closeIdx !== -1) {
-          const jsonRaw = buf.slice(idx + TAIL_BEGIN.length, closeIdx)
-          console.log('📦 Found JSON payload:', jsonRaw.substring(0, 100) + '...')
-          try {
-            const payload = JSON.parse(jsonRaw)
-            console.log('✅ Parsed payload:', payload)
-            console.log('🎵 Tracks received:', payload.tracks?.length || 0)
-            
-            const newTracks = (payload.tracks || []).map(track => ({
-              title: track.name,
-              artist: track.artists,
-              image: track.image,
-              track_id: track.id
-            }))
-            tracks.value = newTracks
-            console.log('💾 Tracks stored:', tracks.value.length)
-            
-            // Save mood and genres to shared state
-            setMoodRecommendations(newTracks, payload.mood, payload.genres)
-            
-            batchIndex = 0
-            updateRecommendations()
-            console.log('🎨 Recommendations updated:', recommendations.value.length)
-          } catch (e) {
-            console.error('Failed to parse recommendations:', e)
-          }
-          break
-        }
-      }
-    }
+    const res = await fetch(
+      `https://api.spotify.com/v1/search?q=${encodeURIComponent(searchTerm.value)}&type=track&limit=50`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    const data = await res.json()
+    tracks.value = data.tracks.items.map(track => ({
+      title: track.name,
+      artist: track.artists.map(a => a.name).join(', '),
+      image: track.album.images[0]?.url,
+      track_id: track.id
+    }))
+    batchIndex = 0
+    updateRecommendations()
   } catch (err) {
-    console.error('Mood search failed:', err)
+    console.error(err)
   }
 }
 
@@ -189,13 +93,6 @@ function showNextBatch() {
   batchIndex += 3
   if (batchIndex >= tracks.value.length) batchIndex = 0
   updateRecommendations()
-}
-
-function clearRecommendations() {
-  clearMoodRecommendations()
-  tracks.value = []
-  recommendations.value = []
-  batchIndex = 0
 }
 
 function updateRecommendations() {
@@ -227,18 +124,6 @@ function updateRecommendations() {
   background: linear-gradient(90deg, var(--confident), var(--euphoric), var(--flirty));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  margin-bottom: 0.5rem;
-}
-
-.mood-subtitle {
-  font-size: 1rem;
-  color: rgba(255, 255, 255, 0.9);
-  margin: 0;
-}
-
-.mood-subtitle strong {
-  color: #fff;
-  font-weight: 700;
 }
 
 /* Search bar */
@@ -246,12 +131,10 @@ function updateRecommendations() {
   display: flex;
   gap: 12px;
   margin: 1.5rem 0;
-  flex-wrap: wrap;
 }
 
 .search-bar input {
   flex: 1;
-  min-width: 250px;
   padding: 0.5rem 1rem;
   border-radius: 999px;
   border: 1px solid rgba(255,255,255,0.3);
@@ -272,21 +155,6 @@ function updateRecommendations() {
   font-weight: 700;
   color: white;
   background: linear-gradient(90deg, var(--confident), var(--euphoric), var(--flirty));
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.search-bar button:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(139, 85, 243, 0.4);
-}
-
-.search-bar button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.clear-btn {
-  background: rgba(255, 255, 255, 0.2) !important;
 }
 
 .grid {
@@ -348,12 +216,5 @@ function updateRecommendations() {
 
 .login-prompt p {
   color: #ccc;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 3rem 1rem;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 1.1rem;
 }
 </style>
