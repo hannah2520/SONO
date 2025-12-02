@@ -21,9 +21,9 @@
 
     <!-- Quick mood buttons -->
     <div class="mood-buttons">
-      <button 
-        v-for="mood in quickMoods" 
-        :key="mood" 
+      <button
+        v-for="mood in quickMoods"
+        :key="mood"
         @click="sendQuickMood(mood)"
         :disabled="loading"
         class="mood-btn"
@@ -39,7 +39,7 @@
         · Genres: <strong>{{ header.genres.join(', ') }}</strong>
       </span>
     </div>
-    
+
     <div class="chat-messages" ref="messagesContainer">
       <div
         v-for="(msg, index) in messages"
@@ -48,14 +48,14 @@
       >
         <div class="message-content">{{ msg.content }}</div>
       </div>
-      
+
       <div v-if="loading" class="message ai-message">
         <div class="message-content typing-indicator">
           <span></span><span></span><span></span>
         </div>
       </div>
     </div>
-    
+
     <form @submit.prevent="sendMessage" class="chat-input-form">
       <input
         v-model="userInput"
@@ -171,7 +171,7 @@ const sendMessage = async (textOverride = null) => {
   if (textOverride && typeof textOverride === 'object' && textOverride.preventDefault) {
     textOverride = null
   }
-  
+
   const text = textOverride || userInput.value
   if (!text.trim() || loading.value) return
 
@@ -237,7 +237,7 @@ const sendMessage = async (textOverride = null) => {
             detectedMood.value = payload.mood || '' // Store detected mood for button
             console.log('✅ detectedMood.value set to:', detectedMood.value)
             tracks.value = payload.tracks || []
-            
+
             // Save recommendations to shared state for discover page
             if (tracks.value.length > 0) {
               setMoodRecommendations(tracks.value, payload.mood, payload.genres)
@@ -285,163 +285,183 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* PAGE BACKGROUND – same structure as Discover page */
+.chatbot-page {
+  min-height: 100vh;
+  padding: 2rem 1.5rem;
+  display: flex;
+  justify-content: center;
+}
+
+.content {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+/* Use same gradient language as Discover page */
+.chatbot-page {
+  background: radial-gradient(
+    circle at center,
+    var(--euphoric),
+    var(--confident),
+    var(--flirty)
+  );
+}
+
+/* MAIN CARD – big glass tile like a hero card */
 .chatbot-container {
+  width: 100%;
+  max-width: 720px;
+  border-radius: 1.8rem;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  width: 100%;
-  max-width: 800px;
-  background: white;
-  border-radius: 24px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  overflow: hidden;
-  margin: 0 auto;
+
+  background: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #111827;
 }
+
+/* ============================================================
+   AUTH STRIP + HEADER
+   ============================================================ */
 
 .auth-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.75rem 1.5rem;
-  background: #f8f9fa;
-  border-bottom: 1px solid #e0e0e0;
+  padding: 0.7rem 1.5rem;
+  font-size: 0.85rem;
+  background: rgba(15, 23, 42, 0.85);
+  color: #e5e7eb;
 }
 
-.auth-status {
-  font-size: 0.9rem;
-  color: #666;
+.auth-status strong {
+  font-weight: 700;
 }
 
 .auth-btn {
-  padding: 0.5rem 1rem;
+  padding: 0.45rem 1.1rem;
   border: none;
-  border-radius: 20px;
-  font-size: 0.85rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
 }
 
 .auth-btn.connect {
-  background: #1db954;
-  color: white;
+  background: linear-gradient(90deg, #1db954, #1ed760);
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
 }
-
 .auth-btn.connect:hover {
-  background: #1ed760;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
 }
 
 .auth-btn.disconnect {
-  background: #e0e0e0;
-  color: #666;
+  background: rgba(255, 255, 255, 0.16);
+  color: #f9fafb;
 }
-
 .auth-btn.disconnect:hover {
-  background: #d0d0d0;
+  background: rgba(255, 255, 255, 0.25);
 }
 
 .chat-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  padding: 0.9rem 1.5rem 0.6rem;
+  background: rgba(15, 23, 42, 0.9);
+  color: #f9fafb;
 }
 
 .chat-header h3 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 0.95rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 .close-btn {
   background: none;
   border: none;
-  color: white;
-  font-size: 2rem;
+  color: #f9fafb;
+  font-size: 1.4rem;
   cursor: pointer;
   padding: 0;
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
+  border-radius: 999px;
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
 }
 
-.close-btn:hover {
-  opacity: 0.8;
-}
+/* ============================================================
+   MOOD BUTTON STRIP
+   ============================================================ */
 
 .mood-buttons {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  padding: 1rem 1.5rem;
-  background: linear-gradient(135deg, rgba(179, 136, 255, 0.2), rgba(255, 138, 171, 0.2));
+  padding: 0.7rem 1.5rem 0.8rem;
+  background: rgba(15, 23, 42, 0.78);
 }
 
 .mood-btn {
-  padding: 0.5rem 1rem;
-  border-radius: 24px;
+  padding: 0.4rem 0.95rem;
+  border-radius: 999px;
   border: none;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.95);
   cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.2s;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #111827;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
 }
-
 .mood-btn:hover:not(:disabled) {
-  background: white;
+  background: #ffffff;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.16);
   transform: translateY(-1px);
 }
-
 .mood-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
-.discover-cta {
-  padding: 1.5rem;
-  display: flex;
-  justify-content: center;
-  border-top: 1px solid rgba(139, 85, 243, 0.1);
-}
-
-.discover-btn {
-  padding: 0.875rem 1.75rem;
-  background: linear-gradient(135deg, #8b55f3, #a18dd6);
-  color: white;
-  border: none;
-  border-radius: 12px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(139, 85, 243, 0.3);
-}
-
-.discover-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(139, 85, 243, 0.4);
-  background: linear-gradient(135deg, #a18dd6, #8b55f3);
-}
-
+/* Mood / genre header */
 .info-header {
-  padding: 0.75rem 1.5rem;
-  background: rgba(179, 136, 255, 0.1);
-  font-size: 0.9rem;
-  opacity: 0.8;
+  padding: 0.55rem 1.5rem 0.6rem;
+  background: rgba(15, 23, 42, 0.7);
+  font-size: 0.82rem;
+  color: #e5e7eb;
 }
+
+/* ============================================================
+   MESSAGES AREA – light, like Discover tiles
+   ============================================================ */
 
 .chat-messages {
   height: 320px;
   overflow-y: auto;
-  padding: 1.5rem;
-  background: #f8f9fa;
+  padding: 1.2rem 1.5rem 1.1rem;
+  background: #f8fafc;
 }
 
 .message {
-  margin-bottom: 1rem;
+  margin-bottom: 0.9rem;
   display: flex;
 }
 
@@ -455,136 +475,191 @@ onMounted(() => {
 
 .message-content {
   max-width: 75%;
-  padding: 0.75rem 1rem;
-  border-radius: 12px;
+  padding: 0.7rem 1rem;
+  border-radius: 14px;
   word-wrap: break-word;
+  font-size: 0.9rem;
 }
 
 .user-message .message-content {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: linear-gradient(
+    135deg,
+    var(--confident),
+    var(--euphoric)
+  );
+  color: #fff;
   border-bottom-right-radius: 4px;
 }
 
 .ai-message .message-content {
-  background: white;
-  color: #333;
+  background: #ffffff;
+  color: #111827;
   border-bottom-left-radius: 4px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
 }
 
+/* typing dots */
 .typing-indicator {
   display: flex;
   gap: 4px;
-  padding: 1rem;
+  padding: 0.6rem 0.8rem;
 }
-
 .typing-indicator span {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: #999;
+  background: #9ca3af;
   animation: typing 1.4s infinite;
 }
-
 .typing-indicator span:nth-child(2) {
   animation-delay: 0.2s;
 }
-
 .typing-indicator span:nth-child(3) {
   animation-delay: 0.4s;
 }
 
 @keyframes typing {
-  0%, 60%, 100% {
+  0%,
+  60%,
+  100% {
     transform: translateY(0);
   }
   30% {
-    transform: translateY(-10px);
+    transform: translateY(-7px);
   }
 }
 
+/* ============================================================
+   INPUT BAR
+   ============================================================ */
+
 .chat-input-form {
   display: flex;
-  padding: 1rem 1.5rem;
-  background: white;
-  border-top: 1px solid #e0e0e0;
-  gap: 0.5rem;
+  padding: 0.85rem 1.5rem 0.95rem;
+  background: #ffffff;
+  border-top: 1px solid #e5e7eb;
+  gap: 0.6rem;
 }
 
 .chat-input {
   flex: 1;
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  font-size: 0.95rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  font-size: 0.9rem;
   outline: none;
 }
-
 .chat-input:focus {
-  border-color: #667eea;
+  border-color: color-mix(in srgb, var(--euphoric) 60%, #6366f1 20%);
+  box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.25);
 }
-
 .chat-input:disabled {
-  background: #f5f5f5;
+  background: #f3f4f6;
   cursor: not-allowed;
 }
 
 .send-btn {
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 0.7rem 1.5rem;
+  background: linear-gradient(
+    135deg,
+    var(--confident),
+    var(--euphoric),
+    var(--flirty)
+  );
   color: white;
   border: none;
-  border-radius: 12px;
+  border-radius: 999px;
   cursor: pointer;
   font-weight: 600;
-  transition: opacity 0.2s;
+  font-size: 0.9rem;
+  transition: opacity 0.15s ease, transform 0.12s ease, box-shadow 0.12s ease;
 }
-
 .send-btn:hover:not(:disabled) {
-  opacity: 0.9;
+  opacity: 0.95;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(148, 87, 235, 0.4);
 }
-
 .send-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
+/* ============================================================
+   DISCOVER CTA
+   ============================================================ */
+
+.discover-cta {
+  padding: 0.9rem 1.5rem 1.2rem;
+  display: flex;
+  justify-content: center;
+  background: rgba(248, 250, 252, 0.98);
+  border-top: 1px solid #e5e7eb;
+}
+
+.discover-btn {
+  padding: 0.8rem 1.8rem;
+  background: linear-gradient(
+    135deg,
+    var(--confident),
+    var(--euphoric),
+    var(--flirty)
+  );
+  color: white;
+  border: none;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 8px 20px rgba(148, 87, 235, 0.45);
+}
+.discover-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 26px rgba(148, 87, 235, 0.55);
+}
+
+/* ============================================================
+   TRACKS SECTION (unchanged, lightly tuned)
+   ============================================================ */
+
 .tracks-container {
-  padding: 1.5rem;
-  background: #f8f9fa;
-  border-top: 1px solid #e0e0e0;
+  padding: 1.2rem 1.5rem 1.4rem;
+  background: #f8fafc;
+  border-top: 1px solid #e5e7eb;
 }
 
 .tracks-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 0.9rem;
 }
 
 .tracks-title {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
-  color: #333;
+  color: #111827;
   margin: 0;
 }
 
 .view-more-btn {
-  padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 0.45rem 0.95rem;
+  background: linear-gradient(
+    135deg,
+    var(--confident),
+    var(--euphoric)
+  );
   color: white;
   border: none;
-  border-radius: 20px;
-  font-size: 0.85rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
-
 .view-more-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
 }
 
 .tracks-list {
@@ -592,29 +667,27 @@ onMounted(() => {
   padding: 0;
   margin: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.85rem;
 }
 
 .track-item {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  gap: 0.75rem;
+  padding: 0.8rem;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 12px;
-  transition: all 0.2s;
+  transition: all 0.15s ease;
 }
-
 .track-item:hover {
-  background: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.15);
 }
 
 .track-image {
-  width: 60px;
-  height: 60px;
+  width: 56px;
+  height: 56px;
   border-radius: 8px;
   object-fit: cover;
   flex-shrink: 0;
@@ -628,16 +701,16 @@ onMounted(() => {
 .track-name {
   font-size: 0.9rem;
   font-weight: 600;
-  color: #333;
+  color: #111827;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .track-artists {
-  font-size: 0.8rem;
-  color: #666;
-  margin-top: 0.25rem;
+  font-size: 0.78rem;
+  color: #6b7280;
+  margin-top: 0.2rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -646,42 +719,60 @@ onMounted(() => {
 .track-actions {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
   flex-shrink: 0;
 }
 
 .track-audio {
-  height: 32px;
+  height: 30px;
 }
 
 .track-link {
-  padding: 0.5rem 1rem;
+  padding: 0.45rem 0.85rem;
   background: #000;
   color: white;
   text-decoration: none;
   border-radius: 8px;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   font-weight: 600;
-  transition: opacity 0.2s;
+  transition: opacity 0.15s ease;
 }
-
 .track-link:hover {
   opacity: 0.8;
 }
 
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
 @media (max-width: 768px) {
+  .chatbot-page {
+    padding: 1.5rem 1rem;
+  }
+
+  .chatbot-container {
+    border-radius: 1.4rem;
+  }
+
+  .chat-messages {
+    height: 280px;
+  }
+
   .tracks-list {
     grid-template-columns: 1fr;
   }
-  
+
   .track-item {
     flex-direction: column;
     align-items: flex-start;
   }
-  
+
   .track-actions {
     width: 100%;
     justify-content: space-between;
   }
 }
 </style>
+
+
+
