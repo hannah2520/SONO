@@ -224,6 +224,11 @@ const sendMessage = async (textOverride = null) => {
             const payload = JSON.parse(jsonRaw)
             header.value = { mood: payload.mood, genres: payload.genres }
             tracks.value = payload.tracks || []
+            
+            // Save recommendations to shared state for discover page
+            if (tracks.value.length > 0) {
+              setMoodRecommendations(tracks.value, payload.mood, payload.genres)
+            }
           } catch {}
           buf = buf.slice(closeIdx + TAIL_END.length)
         }

@@ -21,12 +21,15 @@
         <input
           type="text"
           v-model="searchTerm"
-          placeholder="Search Spotify..."
-          @keyup.enter="searchSpotify"
+          placeholder="Search by mood (e.g., happy, sad, energetic, chill)..."
+          @keyup.enter="searchByMood"
         />
-        <button @click="searchSpotify">Search</button>
+        <button @click="searchByMood">Search</button>
         <button class="refresh-btn" @click="showNextBatch" :disabled="!tracks.length">
-          Refresh
+          Show More
+        </button>
+        <button v-if="recommendations.length" class="clear-btn" @click="clearRecommendations">
+          Clear
         </button>
       </div>
 
@@ -47,6 +50,11 @@
           </iframe>
         </article>
       </section>
+
+      <!-- Empty state -->
+      <div v-if="isAuthenticated && !recommendations.length" class="empty-state">
+        <p>No recommendations yet. Visit the AI Chatbot to get mood-based music suggestions!</p>
+      </div>
     </main>
   </div>
 </template>
@@ -57,9 +65,8 @@ import { useSpotifyAuth } from '@/composables/useSpotifyAuth'
 import { useMoodRecommendations } from '@/composables/useMoodRecommendations'
 
 const { isAuthenticated, login, getAccessToken, handleRedirectCallback } = useSpotifyAuth()
-const { moodRecommendations, currentMood, currentGenres } = useMoodRecommendations()
+const { moodRecommendations, currentMood, currentGenres, clearMoodRecommendations } = useMoodRecommendations()
 
-const searchTerm = ref('')
 const tracks = ref([])
 const recommendations = ref([])
 let batchIndex = 0
@@ -97,27 +104,61 @@ watch(moodRecommendations, (newTracks) => {
     updateRecommendations()
   }
 })
-async function searchSpotify() {
-  const token = await getAccessToken()
-  if (!token) return
-  if (!searchTerm.value) return
 
+async function searchByMood() {
+  if (!searchTerm.value.trim()) return
+  
   try {
-    const res = await fetch(
-      `https://api.spotify.com/v1/search?q=${encodeURIComponent(searchTerm.value)}&type=track&limit=50`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
-    const data = await res.json()
-    tracks.value = data.tracks.items.map(track => ({
-      title: track.name,
-      artist: track.artists.map(a => a.name).join(', '),
-      image: track.album.images[0]?.url,
-      track_id: track.id
-    }))
-    batchIndex = 0
-    updateRecommendations()
+    // Call backend API to get mood-based recommendations
+    const response = await fetch('http://127.0.0.1:3000/api/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        messages: [
+          { role: 'user', content: `I'm feeling ${searchTerm.value}` }
+        ]
+      })
+    })
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buf = ''
+    const TAIL_BEGIN = '<<<JSON:'
+    const TAIL_END = '>>>'
+
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      
+      const chunk = decoder.decode(value, { stream: true })
+      buf += chunk
+
+      const idx = buf.indexOf(TAIL_BEGIN)
+      if (idx !== -1) {
+        const closeIdx = buf.indexOf(TAIL_END, idx + TAIL_BEGIN.length)
+        if (closeIdx !== -1) {
+          const jsonRaw = buf.slice(idx + TAIL_BEGIN.length, closeIdx)
+          try {
+            const payload = JSON.parse(jsonRaw)
+            const newTracks = (payload.tracks || []).map(track => ({
+              title: track.name,
+              artist: track.artists,
+              image: track.image,
+              track_id: track.id
+            }))
+            tracks.value = newTracks
+            batchIndex = 0
+            updateRecommendations()
+          } catch (e) {
+            console.error('Failed to parse recommendations:', e)
+          }
+          break
+        }
+      }
+    }
   } catch (err) {
-    console.error(err)
+    console.error('Mood search failed:', err)
   }
 }
 
@@ -126,6 +167,13 @@ function showNextBatch() {
   batchIndex += 3
   if (batchIndex >= tracks.value.length) batchIndex = 0
   updateRecommendations()
+}
+
+function clearRecommendations() {
+  clearMoodRecommendations()
+  tracks.value = []
+  recommendations.value = []
+  batchIndex = 0
 }
 
 function updateRecommendations() {
@@ -176,10 +224,12 @@ function updateRecommendations() {
   display: flex;
   gap: 12px;
   margin: 1.5rem 0;
+  flex-wrap: wrap;
 }
 
 .search-bar input {
   flex: 1;
+  min-width: 250px;
   padding: 0.5rem 1rem;
   border-radius: 999px;
   border: 1px solid rgba(255,255,255,0.3);
@@ -200,6 +250,21 @@ function updateRecommendations() {
   font-weight: 700;
   color: white;
   background: linear-gradient(90deg, var(--confident), var(--euphoric), var(--flirty));
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.search-bar button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(139, 85, 243, 0.4);
+}
+
+.search-bar button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.clear-btn {
+  background: rgba(255, 255, 255, 0.2) !important;
 }
 
 .grid {
@@ -261,5 +326,12 @@ function updateRecommendations() {
 
 .login-prompt p {
   color: #ccc;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1.1rem;
 }
 </style>
