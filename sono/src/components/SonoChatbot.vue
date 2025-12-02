@@ -1,106 +1,153 @@
 <template>
-  <div class="chatbot-container">
-    <!-- Auth Status Bar -->
-    <div class="auth-bar">
-      <div class="auth-status">
-        <span v-if="auth.connected">Connected as <strong>{{ auth.name || 'Spotify user' }}</strong></span>
-        <span v-else>Not connected to Spotify</span>
-      </div>
-      <button v-if="!auth.connected" @click="connectSpotify" class="auth-btn connect">
-        Connect Spotify
-      </button>
-      <button v-else @click="disconnectSpotify" class="auth-btn disconnect">
-        Disconnect
-      </button>
-    </div>
-
-    <div class="chat-header">
-      <h3>SONO AI Assistant</h3>
-      <button @click="toggleChat" class="close-btn">×</button>
-    </div>
-
-    <!-- Quick mood buttons -->
-    <div class="mood-buttons">
-      <button
-        v-for="mood in quickMoods"
-        :key="mood"
-        @click="sendQuickMood(mood)"
-        :disabled="loading"
-        class="mood-btn"
-      >
-        {{ mood }}
-      </button>
-    </div>
-
-    <!-- Mood/Genre header -->
-    <div v-if="header.mood" class="info-header">
-      Mood: <strong>{{ header.mood }}</strong>
-      <span v-if="header.genres && header.genres.length">
-        · Genres: <strong>{{ header.genres.join(', ') }}</strong>
-      </span>
-    </div>
-
-    <div class="chat-messages" ref="messagesContainer">
-      <div
-        v-for="(msg, index) in messages"
-        :key="index"
-        :class="['message', msg.role === 'user' ? 'user-message' : 'ai-message']"
-      >
-        <div class="message-content">{{ msg.content }}</div>
-      </div>
-
-      <div v-if="loading" class="message ai-message">
-        <div class="message-content typing-indicator">
-          <span></span><span></span><span></span>
+  <div class="chatbot-page">
+    <main class="content">
+      <section class="chat-card">
+        <!-- Auth Status Bar -->
+        <div class="auth-bar">
+          <div class="auth-status">
+            <span v-if="auth.connected">
+              Connected as <strong>{{ auth.name || 'Spotify user' }}</strong>
+            </span>
+            <span v-else>Not connected to Spotify</span>
+          </div>
+          <button
+            v-if="!auth.connected"
+            @click="connectSpotify"
+            class="auth-btn connect"
+          >
+            Connect Spotify
+          </button>
+          <button
+            v-else
+            @click="disconnectSpotify"
+            class="auth-btn disconnect"
+          >
+            Disconnect
+          </button>
         </div>
-      </div>
-    </div>
 
-    <form @submit.prevent="sendMessage" class="chat-input-form">
-      <input
-        v-model="userInput"
-        type="text"
-        placeholder="Keep chatting: 'more upbeat', 'like my top artists but sad', etc."
-        :disabled="loading"
-        class="chat-input"
-      />
-      <button type="submit" :disabled="loading || !userInput.trim()" class="send-btn">
-        Send
-      </button>
-    </form>
+        <div class="chat-header">
+          <h3>SONO AI ASSISTANT</h3>
+          <button @click="toggleChat" class="close-btn">×</button>
+        </div>
 
-    <!-- Discover Page Button (dynamic mood) -->
-    <div class="discover-cta">
-      <button @click="goToDiscoverWithMood" class="discover-btn">
-        <span v-if="detectedMood">🎵 Explore {{ detectedMood }} Music →</span>
-        <span v-else>🎵 Explore Music Recommendations →</span>
-      </button>
-    </div>
+        <!-- Quick mood buttons -->
+        <div class="mood-buttons">
+          <button
+            v-for="mood in quickMoods"
+            :key="mood"
+            @click="sendQuickMood(mood)"
+            :disabled="loading"
+            class="mood-btn"
+          >
+            {{ mood }}
+          </button>
+        </div>
 
-    <!-- Track recommendations (hidden for now) -->
-    <div v-if="tracks.length > 0" class="tracks-container" style="display: none;">
-      <div class="tracks-header">
-        <h3 class="tracks-title">Fresh picks</h3>
-        <button @click="viewMoreRecommendations" class="view-more-btn">
-          View More on Discover Page →
-        </button>
-      </div>
-      <ul class="tracks-list">
-        <li v-for="track in tracks" :key="track.id" class="track-item">
-          <img v-if="track.image" :src="track.image" :alt="track.name" class="track-image" />
-          <div class="track-info">
-            <div class="track-name">{{ track.name }}</div>
-            <div class="track-artists">{{ track.artists }}</div>
+        <!-- Mood/Genre header -->
+        <div v-if="header.mood" class="info-header">
+          Mood: <strong>{{ header.mood }}</strong>
+          <span v-if="header.genres && header.genres.length">
+            · Genres: <strong>{{ header.genres.join(', ') }}</strong>
+          </span>
+        </div>
+
+        <!-- Messages -->
+        <div class="chat-messages" ref="messagesContainer">
+          <div
+            v-for="(msg, index) in messages"
+            :key="index"
+            :class="[
+              'message',
+              msg.role === 'user' ? 'user-message' : 'ai-message'
+            ]"
+          >
+            <div class="message-content">{{ msg.content }}</div>
           </div>
-          <div class="track-actions">
-            <audio v-if="track.preview_url" controls preload="none" :src="track.preview_url" class="track-audio" />
-            <a :href="track.url" target="_blank" rel="noreferrer" class="track-link">
-              Open
-            </a>
+
+          <div v-if="loading" class="message ai-message">
+            <div class="message-content typing-indicator">
+              <span></span><span></span><span></span>
+            </div>
           </div>
-        </li>
-      </ul>
-    </div>
+        </div>
+
+        <!-- Input -->
+        <form @submit.prevent="sendMessage" class="chat-input-form">
+          <input
+            v-model="userInput"
+            type="text"
+            placeholder="Keep chatting: 'more upbeat', 'like my top artists but sad', etc."
+            :disabled="loading"
+            class="chat-input"
+          />
+          <button
+            type="submit"
+            :disabled="loading || !userInput.trim()"
+            class="send-btn"
+          >
+            Send
+          </button>
+        </form>
+
+        <!-- Discover Page Button (dynamic mood) -->
+        <div class="discover-cta">
+          <button @click="goToDiscoverWithMood" class="discover-btn">
+            <span v-if="detectedMood">🎵 Explore {{ detectedMood }} Music →</span>
+            <span v-else>🎵 Explore Music Recommendations →</span>
+          </button>
+        </div>
+
+        <!-- Track recommendations (still hidden for now) -->
+        <div
+          v-if="tracks.length > 0"
+          class="tracks-container"
+          style="display: none;"
+        >
+          <div class="tracks-header">
+            <h3 class="tracks-title">Fresh picks</h3>
+            <button @click="viewMoreRecommendations" class="view-more-btn">
+              View More on Discover Page →
+            </button>
+          </div>
+          <ul class="tracks-list">
+            <li
+              v-for="track in tracks"
+              :key="track.id"
+              class="track-item"
+            >
+              <img
+                v-if="track.image"
+                :src="track.image"
+                :alt="track.name"
+                class="track-image"
+              />
+              <div class="track-info">
+                <div class="track-name">{{ track.name }}</div>
+                <div class="track-artists">{{ track.artists }}</div>
+              </div>
+              <div class="track-actions">
+                <audio
+                  v-if="track.preview_url"
+                  controls
+                  preload="none"
+                  :src="track.preview_url"
+                  class="track-audio"
+                />
+                <a
+                  :href="track.url"
+                  target="_blank"
+                  rel="noreferrer"
+                  class="track-link"
+                >
+                  Open
+                </a>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </section>
+    </main>
   </div>
 </template>
 
@@ -283,50 +330,131 @@ onMounted(() => {
   checkAuth()
 })
 </script>
-
 <style scoped>
-/* PAGE BACKGROUND – same structure as Discover page */
+:root {
+  --euphoric: #a18dd6;
+  --confident: #8b55f3;
+  --flirty: #f584b1;
+}
+
+/* ============================================================
+   PAGE WRAPPER + BLOB BACKGROUND (same language as CONTACT)
+   ============================================================ */
+
 .chatbot-page {
+  position: relative;
   min-height: 100vh;
-  padding: 2rem 1.5rem;
   display: flex;
+  align-items: center;
   justify-content: center;
+  padding: 3.5rem 1.5rem 4rem;
+  box-sizing: border-box;
+  color: var(--pure);
+  overflow: hidden;
+  background: transparent;
+  z-index: 0;
 }
 
+.chatbot-page::before {
+  content: '';
+  position: absolute;
+  inset: -24% -18%;
+  pointer-events: none;
+  z-index: -2;
+  background-repeat: no-repeat;
+
+  /* copy of your contact blobs, just re-using mood vars */
+  background-image:
+    radial-gradient(580px 580px at 10% 30%, color-mix(in srgb, var(--euphoric) 96%, transparent), transparent 60%),
+    radial-gradient(520px 520px at 22% 55%, color-mix(in srgb, var(--serene) 92%, transparent), transparent 60%),
+    radial-gradient(520px 520px at 12% 80%, color-mix(in srgb, var(--melancholy) 92%, transparent), transparent 60%),
+    radial-gradient(620px 620px at 82% 26%, color-mix(in srgb, var(--flirty) 96%, transparent), transparent 60%),
+    radial-gradient(560px 560px at 90% 72%, color-mix(in srgb, var(--melancholy) 92%, transparent), transparent 60%),
+    radial-gradient(540px 540px at 50% 104%, color-mix(in srgb, var(--euphoric) 90%, transparent), transparent 62%);
+
+  filter: blur(18px);
+  opacity: 0.97;
+
+  animation: chatbot-blobs-main 6.5s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+
+.chatbot-page::after {
+  content: '';
+  position: absolute;
+  inset: -30% -20%;
+  pointer-events: none;
+  z-index: -1;
+  background-repeat: no-repeat;
+
+  background-image:
+    radial-gradient(360px 560px at 18% 90%, color-mix(in srgb, var(--melancholy) 82%, transparent), transparent 70%),
+    radial-gradient(360px 540px at 82% 80%, color-mix(in srgb, var(--serene) 82%, transparent), transparent 72%),
+    radial-gradient(320px 460px at 52% 112%, color-mix(in srgb, var(--euphoric) 82%, transparent), transparent 70%),
+    radial-gradient(300px 380px at 38% 40%, color-mix(in srgb, var(--hype) 82%, transparent), transparent 72%),
+    radial-gradient(280px 360px at 64% 18%, color-mix(in srgb, var(--euphoric) 82%, transparent), transparent 72%);
+
+  filter: blur(22px);
+  opacity: 0.9;
+
+  animation: chatbot-blobs-accent 4.8s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+
+@keyframes chatbot-blobs-main {
+  0% { transform: translate3d(-40px, -30px, 0) scale(0.9); opacity: 0.92; }
+  25% { transform: translate3d(24px, -8px, 0) scale(1.02); opacity: 1; }
+  50% { transform: translate3d(48px, 26px, 0) scale(1.08); opacity: 1; }
+  75% { transform: translate3d(-18px, 42px, 0) scale(1.04); opacity: 0.97; }
+  100% { transform: translate3d(-42px, 58px, 0) scale(0.96); opacity: 0.9; }
+}
+
+@keyframes chatbot-blobs-accent {
+  0% { transform: translate3d(45px, 45px, 0) scale(0.9); opacity: 0.35; }
+  20% { transform: translate3d(15px, 12px, 0) scale(1.06); opacity: 0.8; }
+  50% { transform: translate3d(-35px, -28px, 0) scale(1.14); opacity: 0.95; }
+  80% { transform: translate3d(-12px, -50px, 0) scale(1.02); opacity: 0.55; }
+  100% { transform: translate3d(28px, -62px, 0) scale(0.94); opacity: 0.32; }
+}
+
+/* center content like your contact hero */
 .content {
+  position: relative;
+  z-index: 1;
   width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
   display: flex;
   justify-content: center;
 }
 
-/* Use same gradient language as Discover page */
-.chatbot-page {
-  background: radial-gradient(
-    circle at center,
-    var(--euphoric),
-    var(--confident),
-    var(--flirty)
-  );
-}
+/* ============================================================
+   CHAT MODAL – gradient shell like CONTACT card
+   ============================================================ */
 
-/* MAIN CARD – big glass tile like a hero card */
-.chatbot-container {
+.chat-card {
   width: 100%;
-  max-width: 720px;
-  border-radius: 1.8rem;
+  border-radius: 1.7rem;
+  padding: 0; /* inner sections handle padding */
+  margin-top: 0.5rem;
+
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--confident) 45%, transparent),
+    color-mix(in srgb, var(--euphoric) 45%, transparent),
+    color-mix(in srgb, var(--flirty) 35%, transparent)
+  );
+  backdrop-filter: blur(16px) saturate(135%);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+
   overflow: hidden;
   display: flex;
   flex-direction: column;
-
-  background: rgba(255, 255, 255, 0.16);
-  backdrop-filter: blur(18px) saturate(140%);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.28);
   color: #111827;
 }
 
 /* ============================================================
-   AUTH STRIP + HEADER
+   AUTH + HEADER – dark slab like contact form tile
    ============================================================ */
 
 .auth-bar {
@@ -335,7 +463,7 @@ onMounted(() => {
   align-items: center;
   padding: 0.7rem 1.5rem;
   font-size: 0.85rem;
-  background: rgba(15, 23, 42, 0.85);
+  background: rgba(15, 23, 42, 0.96);
   color: #e5e7eb;
 }
 
@@ -376,7 +504,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 0.9rem 1.5rem 0.6rem;
-  background: rgba(15, 23, 42, 0.9);
+  background: rgba(15, 23, 42, 0.98);
   color: #f9fafb;
 }
 
@@ -417,14 +545,14 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 0.5rem;
   padding: 0.7rem 1.5rem 0.8rem;
-  background: rgba(15, 23, 42, 0.78);
+  background: rgba(15, 23, 42, 0.9);
 }
 
 .mood-btn {
   padding: 0.4rem 0.95rem;
   border-radius: 999px;
   border: none;
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.96);
   cursor: pointer;
   font-size: 0.8rem;
   font-weight: 600;
@@ -441,7 +569,6 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-/* Mood / genre header */
 .info-header {
   padding: 0.55rem 1.5rem 0.6rem;
   background: rgba(15, 23, 42, 0.7);
@@ -450,7 +577,7 @@ onMounted(() => {
 }
 
 /* ============================================================
-   MESSAGES AREA – light, like Discover tiles
+   MESSAGES AREA – light like your form inputs
    ============================================================ */
 
 .chat-messages {
@@ -482,11 +609,7 @@ onMounted(() => {
 }
 
 .user-message .message-content {
-  background: linear-gradient(
-    135deg,
-    var(--confident),
-    var(--euphoric)
-  );
+  background: linear-gradient(135deg, var(--confident), var(--euphoric));
   color: #fff;
   border-bottom-right-radius: 4px;
 }
@@ -499,6 +622,7 @@ onMounted(() => {
 }
 
 /* typing dots */
+
 .typing-indicator {
   display: flex;
   gap: 4px;
@@ -511,22 +635,12 @@ onMounted(() => {
   background: #9ca3af;
   animation: typing 1.4s infinite;
 }
-.typing-indicator span:nth-child(2) {
-  animation-delay: 0.2s;
-}
-.typing-indicator span:nth-child(3) {
-  animation-delay: 0.4s;
-}
+.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
 
 @keyframes typing {
-  0%,
-  60%,
-  100% {
-    transform: translateY(0);
-  }
-  30% {
-    transform: translateY(-7px);
-  }
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-7px); }
 }
 
 /* ============================================================
@@ -560,12 +674,7 @@ onMounted(() => {
 
 .send-btn {
   padding: 0.7rem 1.5rem;
-  background: linear-gradient(
-    135deg,
-    var(--confident),
-    var(--euphoric),
-    var(--flirty)
-  );
+  background: linear-gradient(135deg, var(--confident), var(--euphoric), var(--flirty));
   color: white;
   border: none;
   border-radius: 999px;
@@ -585,25 +694,20 @@ onMounted(() => {
 }
 
 /* ============================================================
-   DISCOVER CTA
+   DISCOVER CTA – pill like your other gradient CTAs
    ============================================================ */
 
 .discover-cta {
   padding: 0.9rem 1.5rem 1.2rem;
   display: flex;
   justify-content: center;
-  background: rgba(248, 250, 252, 0.98);
+  background: #f8fafc;
   border-top: 1px solid #e5e7eb;
 }
 
 .discover-btn {
   padding: 0.8rem 1.8rem;
-  background: linear-gradient(
-    135deg,
-    var(--confident),
-    var(--euphoric),
-    var(--flirty)
-  );
+  background: linear-gradient(135deg, var(--confident), var(--euphoric), var(--flirty));
   color: white;
   border: none;
   border-radius: 999px;
@@ -618,128 +722,7 @@ onMounted(() => {
   box-shadow: 0 12px 26px rgba(148, 87, 235, 0.55);
 }
 
-/* ============================================================
-   TRACKS SECTION (unchanged, lightly tuned)
-   ============================================================ */
-
-.tracks-container {
-  padding: 1.2rem 1.5rem 1.4rem;
-  background: #f8fafc;
-  border-top: 1px solid #e5e7eb;
-}
-
-.tracks-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.9rem;
-}
-
-.tracks-title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: #111827;
-  margin: 0;
-}
-
-.view-more-btn {
-  padding: 0.45rem 0.95rem;
-  background: linear-gradient(
-    135deg,
-    var(--confident),
-    var(--euphoric)
-  );
-  color: white;
-  border: none;
-  border-radius: 999px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
-}
-.view-more-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
-}
-
-.tracks-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 0.85rem;
-}
-
-.track-item {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.8rem;
-  background: #ffffff;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 12px;
-  transition: all 0.15s ease;
-}
-.track-item:hover {
-  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.15);
-}
-
-.track-image {
-  width: 56px;
-  height: 56px;
-  border-radius: 8px;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-
-.track-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.track-name {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #111827;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.track-artists {
-  font-size: 0.78rem;
-  color: #6b7280;
-  margin-top: 0.2rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.track-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  flex-shrink: 0;
-}
-
-.track-audio {
-  height: 30px;
-}
-
-.track-link {
-  padding: 0.45rem 0.85rem;
-  background: #000;
-  color: white;
-  text-decoration: none;
-  border-radius: 8px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  transition: opacity 0.15s ease;
-}
-.track-link:hover {
-  opacity: 0.8;
-}
+/* your tracks styles from before can stay below this if you want them active */
 
 /* ============================================================
    RESPONSIVE
@@ -747,32 +730,20 @@ onMounted(() => {
 
 @media (max-width: 768px) {
   .chatbot-page {
-    padding: 1.5rem 1rem;
+    padding: 2.2rem 1rem 3rem;
   }
 
-  .chatbot-container {
+  .chat-card {
     border-radius: 1.4rem;
   }
 
   .chat-messages {
     height: 280px;
   }
-
-  .tracks-list {
-    grid-template-columns: 1fr;
-  }
-
-  .track-item {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .track-actions {
-    width: 100%;
-    justify-content: space-between;
-  }
 }
 </style>
+
+
 
 
 

@@ -1,8 +1,7 @@
 <template>
   <div class="chatbot-view">
-    <div class="chatbot-wrapper">
-      <SonoChatbot @close="goBack" />
-    </div>
+    <!-- Let SonoChatbot handle its own layout + blobs -->
+    <SonoChatbot @close="goBack" />
   </div>
 </template>
 
@@ -20,15 +19,10 @@ const goBack = () => {
 <style scoped>
 .chatbot-view {
   min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 2rem;
-}
-
-.chatbot-wrapper {
   width: 100%;
-  max-width: 500px;
+  /* no flex centering, no extra gradient –
+     background + centering come from SonoChatbot's .chatbot-page */
+  padding: 0;
+  background: transparent;
 }
 </style>

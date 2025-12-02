@@ -44,7 +44,7 @@ body {
   display: flex;
   flex-direction: column;
   /* stack navbar + main content */
-  background: linear-gradient(135deg, var(--confident), var(--euphoric), var(--flirty));
+  background: var(--balanced);
 }
 
 #app {
