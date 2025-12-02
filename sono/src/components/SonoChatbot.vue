@@ -69,8 +69,16 @@
       </button>
     </form>
 
-    <!-- Track recommendations -->
-    <div v-if="tracks.length > 0" class="tracks-container">
+    <!-- Discover Page Button (dynamic mood) -->
+    <div class="discover-cta">
+      <button @click="goToDiscoverWithMood" class="discover-btn">
+        <span v-if="detectedMood">🎵 Explore {{ detectedMood }} Music →</span>
+        <span v-else>🎵 Explore Music Recommendations →</span>
+      </button>
+    </div>
+
+    <!-- Track recommendations (hidden for now) -->
+    <div v-if="tracks.length > 0" class="tracks-container" style="display: none;">
       <div class="tracks-header">
         <h3 class="tracks-title">Fresh picks</h3>
         <button @click="viewMoreRecommendations" class="view-more-btn">
@@ -117,6 +125,7 @@ const userInput = ref('')
 const loading = ref(false)
 const tracks = ref([])
 const header = ref({ mood: '', genres: [] })
+const detectedMood = ref('') // Track the detected mood for the button
 const auth = ref({ connected: false, name: '' })
 const messagesContainer = ref(null)
 const quickMoods = ['Happy', 'Sad', 'Chill', 'Angry', 'Focus']
@@ -223,6 +232,7 @@ const sendMessage = async (textOverride = null) => {
           try {
             const payload = JSON.parse(jsonRaw)
             header.value = { mood: payload.mood, genres: payload.genres }
+            detectedMood.value = payload.mood || '' // Store detected mood for button
             tracks.value = payload.tracks || []
             
             // Save recommendations to shared state for discover page
@@ -253,6 +263,15 @@ const viewMoreRecommendations = () => {
   setMoodRecommendations(tracks.value, header.value.mood, header.value.genres)
   // Navigate to discover page
   router.push('/discover')
+}
+
+function goToDiscoverWithMood() {
+  if (detectedMood.value) {
+    // Navigate to discover page with mood as query parameter
+    router.push({ path: '/discover', query: { mood: detectedMood.value } })
+  } else {
+    router.push('/discover')
+  }
 }
 
 onMounted(() => {
@@ -374,6 +393,32 @@ onMounted(() => {
 .mood-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.discover-cta {
+  padding: 1.5rem;
+  display: flex;
+  justify-content: center;
+  border-top: 1px solid rgba(139, 85, 243, 0.1);
+}
+
+.discover-btn {
+  padding: 0.875rem 1.75rem;
+  background: linear-gradient(135deg, #8b55f3, #a18dd6);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(139, 85, 243, 0.3);
+}
+
+.discover-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(139, 85, 243, 0.4);
+  background: linear-gradient(135deg, #a18dd6, #8b55f3);
 }
 
 .info-header {

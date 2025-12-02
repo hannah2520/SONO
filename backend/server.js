@@ -136,11 +136,13 @@ async function fetchGenreSeeds() {
       headers: { Authorization: `Bearer ${token}` }
     });
     if (!res.ok) {
-      console.warn(`Using fallback genres`);
+      const errText = await res.text();
+      console.warn(`Using fallback genres (API error: ${res.status}, ${errText})`);
       genreSeedsCache = { data: fallbackGenres, fetchedAt: now };
       return fallbackGenres;
     }
     const data = await res.json();
+    console.log(`✓ Loaded ${data.genres?.length || 0} Spotify genre seeds`);
     genreSeedsCache = { data: data.genres || fallbackGenres, fetchedAt: now };
     return genreSeedsCache.data;
   } catch (error) {
@@ -172,7 +174,7 @@ function moodToFeatures(mood = '') {
     return { target_valence: 0.6, target_energy: 0.35, target_acousticness: 0.4, target_danceability: 0.5, min_popularity: 30 };
   }
   if (m.includes('angry') || m.includes('mad') || m.includes('frustrated')) {
-    return { target_energy: 0.9, target_valence: 0.25, min_popularity: 30 };
+    return { target_energy: 0.9, target_valence: 0.3, target_loudness: -5, min_popularity: 20 };
   }
   if (m.includes('focus') || m.includes('study') || m.includes('work')) {
     return { target_energy: 0.35, target_instrumentalness: 0.6, target_valence: 0.55, min_popularity: 20 };
@@ -300,6 +302,7 @@ app.post('/api/chat/stream', async (req, res) => {
     }
 
     const userToken = await getUserAccessToken(req, res);
+    console.log('User token available:', !!userToken);
     const userMarket = userToken
       ? (await (await fetch('https://api.spotify.com/v1/me', { headers: { Authorization: `Bearer ${userToken}` } })).json()).country
       : undefined;
@@ -310,38 +313,105 @@ app.post('/api/chat/stream', async (req, res) => {
     const genresClean = cleanGenres(ai.genres, new Set(seedsArr.map(normalizeGenre)));
     const features = Object.keys(ai.features || {}).length ? ai.features : moodToFeatures(ai.mood);
 
-    const appToken = await getSpotifyAppToken();
-    const params = new URLSearchParams();
-    params.set('limit', '20');
+    // Use user token if available, otherwise fall back to app token
+    const tokenForRecs = userToken || await getSpotifyAppToken();
+    console.log('Using token type:', userToken ? 'USER' : 'APP');
     
-    if (userTopArtistIds.length) {
-      params.set('seed_artists', userTopArtistIds.join(','));
-      if (genresClean.length) params.set('seed_genres', genresClean.slice(0, Math.max(0, 5 - userTopArtistIds.length)).join(','));
-    } else {
-      const genresToUse = genresClean.length > 0 ? genresClean.slice(0, 5) : ['pop'];
-      params.set('seed_genres', genresToUse.join(','));
+    let tracks = [];
+    
+    // Strategy 1: Try recommendations API (may fail in Development Mode)
+    try {
+      const params = new URLSearchParams();
+      params.set('limit', '20');
+      
+      if (userTopArtistIds.length) {
+        params.set('seed_artists', userTopArtistIds.join(','));
+        if (genresClean.length) params.set('seed_genres', genresClean.slice(0, Math.max(0, 5 - userTopArtistIds.length)).join(','));
+      } else {
+        const genresToUse = genresClean.length > 0 ? genresClean.slice(0, 5) : ['pop'];
+        params.set('seed_genres', genresToUse.join(','));
+      }
+      
+      if (userMarket) params.set('market', userMarket);
+
+      const whitelist = ['target_valence', 'target_energy', 'target_danceability', 'target_acousticness', 'target_instrumentalness'];
+      for (const k of whitelist) {
+        const v = features[k];
+        if (typeof v === 'number' && !Number.isNaN(v)) params.set(k, String(v));
+      }
+
+      console.log('Mood:', ai.mood, 'Genres:', genresClean, 'Top Artists:', userTopArtistIds);
+
+      const url = `https://api.spotify.com/v1/recommendations?${params.toString()}`;
+      console.log('Trying recommendations API:', url);
+      const recRes = await fetch(url, {
+        headers: { Authorization: `Bearer ${tokenForRecs}` }
+      });
+      
+      if (recRes.ok) {
+        const rec = await recRes.json();
+        tracks = (rec.tracks || []).map((t) => ({
+          id: t.id,
+          name: t.name,
+          artists: (t.artists || []).map((a) => a.name).join(', '),
+          url: t.external_urls?.spotify,
+          preview_url: t.preview_url,
+          image: t.album?.images?.[1]?.url || t.album?.images?.[0]?.url || null
+        }));
+        console.log(`✓ Got ${tracks.length} tracks from recommendations API`);
+      } else {
+        console.log('Recommendations API failed with status:', recRes.status);
+      }
+    } catch (e) {
+      console.log('Recommendations API error:', e.message);
     }
     
-    if (userMarket) params.set('market', userMarket);
-
-    const whitelist = ['target_valence', 'target_energy', 'target_danceability', 'target_acousticness', 'target_instrumentalness', 'min_popularity'];
-    for (const k of whitelist) {
-      const v = features[k];
-      if (typeof v === 'number' && !Number.isNaN(v)) params.set(k, String(v));
+    // Strategy 2: If recommendations failed, use search API (always works)
+    if (tracks.length === 0) {
+      console.log('Falling back to search API');
+      try {
+        const moodKeywords = {
+          happy: 'upbeat happy sunshine joy',
+          sad: 'melancholy emotional heartbreak',
+          energetic: 'energy dance workout pump',
+          chill: 'chill relax ambient calm',
+          romantic: 'love romance slow ballad',
+          angry: 'intense aggressive rock metal',
+          nostalgic: 'nostalgia throwback classic',
+          confident: 'confident powerful strong',
+          peaceful: 'peaceful serene meditation',
+          party: 'party dance club electronic'
+        };
+        
+        const searchQuery = moodKeywords[ai.mood.toLowerCase()] || ai.mood;
+        const genreQuery = genresClean.length > 0 ? ` genre:${genresClean[0]}` : '';
+        const fullQuery = `${searchQuery}${genreQuery}`;
+        
+        const searchUrl = `https://api.spotify.com/v1/search?q=${encodeURIComponent(fullQuery)}&type=track&limit=20${userMarket ? `&market=${userMarket}` : ''}`;
+        console.log('Search query:', fullQuery);
+        
+        const searchRes = await fetch(searchUrl, {
+          headers: { Authorization: `Bearer ${tokenForRecs}` }
+        });
+        
+        if (searchRes.ok) {
+          const searchData = await searchRes.json();
+          tracks = (searchData.tracks?.items || []).map((t) => ({
+            id: t.id,
+            name: t.name,
+            artists: (t.artists || []).map((a) => a.name).join(', '),
+            url: t.external_urls?.spotify,
+            preview_url: t.preview_url,
+            image: t.album?.images?.[1]?.url || t.album?.images?.[0]?.url || null
+          }));
+          console.log(`✓ Got ${tracks.length} tracks from search API`);
+        }
+      } catch (e) {
+        console.log('Search API error:', e.message);
+      }
     }
-
-    const recRes = await fetch(`https://api.spotify.com/v1/recommendations?${params.toString()}`, {
-      headers: { Authorization: `Bearer ${appToken}` }
-    });
-    const rec = recRes.ok ? await recRes.json() : { tracks: [] };
-    const tracks = (rec.tracks || []).map((t) => ({
-      id: t.id,
-      name: t.name,
-      artists: (t.artists || []).map((a) => a.name).join(', '),
-      url: t.external_urls?.spotify,
-      preview_url: t.preview_url,
-      image: t.album?.images?.[1]?.url || t.album?.images?.[0]?.url || null
-    }));
+    
+    console.log(`Final track count: ${tracks.length}`);
 
     const tail = JSON.stringify({ mood: ai.mood, genres: genresClean, features, tracks });
     res.write(TAIL_BEGIN + tail + TAIL_END);

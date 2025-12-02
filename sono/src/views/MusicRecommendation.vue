@@ -63,7 +63,9 @@
 import { ref, onMounted, watch } from 'vue'
 import { useSpotifyAuth } from '@/composables/useSpotifyAuth'
 import { useMoodRecommendations } from '@/composables/useMoodRecommendations'
+import { useRoute } from 'vue-router'
 
+const route = useRoute()
 const { isAuthenticated, login, getAccessToken, handleRedirectCallback } = useSpotifyAuth()
 const { moodRecommendations, currentMood, currentGenres, clearMoodRecommendations, setMoodRecommendations } = useMoodRecommendations()
 
@@ -77,6 +79,11 @@ onMounted(async () => {
     await handleRedirectCallback()
   } catch (err) {
     console.error('Spotify callback failed:', err)
+  }
+  
+  // Check if there's a mood query parameter
+  if (route.query.mood) {
+    searchTerm.value = route.query.mood
   }
   
   // Load mood recommendations if available
@@ -109,6 +116,8 @@ watch(moodRecommendations, (newTracks) => {
 async function searchByMood() {
   if (!searchTerm.value.trim()) return
   
+  console.log('🔍 Starting search for mood:', searchTerm.value)
+  
   try {
     // Call backend API to get mood-based recommendations
     const response = await fetch('http://127.0.0.1:3000/api/chat/stream', {
@@ -121,6 +130,8 @@ async function searchByMood() {
         ]
       })
     })
+
+    console.log('📡 Response received, status:', response.status)
 
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
@@ -140,8 +151,12 @@ async function searchByMood() {
         const closeIdx = buf.indexOf(TAIL_END, idx + TAIL_BEGIN.length)
         if (closeIdx !== -1) {
           const jsonRaw = buf.slice(idx + TAIL_BEGIN.length, closeIdx)
+          console.log('📦 Found JSON payload:', jsonRaw.substring(0, 100) + '...')
           try {
             const payload = JSON.parse(jsonRaw)
+            console.log('✅ Parsed payload:', payload)
+            console.log('🎵 Tracks received:', payload.tracks?.length || 0)
+            
             const newTracks = (payload.tracks || []).map(track => ({
               title: track.name,
               artist: track.artists,
@@ -149,12 +164,14 @@ async function searchByMood() {
               track_id: track.id
             }))
             tracks.value = newTracks
+            console.log('💾 Tracks stored:', tracks.value.length)
             
             // Save mood and genres to shared state
             setMoodRecommendations(newTracks, payload.mood, payload.genres)
             
             batchIndex = 0
             updateRecommendations()
+            console.log('🎨 Recommendations updated:', recommendations.value.length)
           } catch (e) {
             console.error('Failed to parse recommendations:', e)
           }
