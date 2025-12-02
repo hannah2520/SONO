@@ -22,7 +22,8 @@ let genreSeedsCache = { data: null, fetchedAt: 0 };
 const COOKIE_OPTS = {
   httpOnly: true,
   sameSite: 'lax',
-  secure: false
+  secure: false,
+  path: '/'
 };
 
 // ---------- Spotify App Token ----------
@@ -356,4 +357,4 @@ app.post('/api/chat/stream', async (req, res) => {
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 SONO chatbot API on http://localhost:${PORT}`));
+app.listen(PORT, '127.0.0.1', () => console.log(`🚀 SONO chatbot API on http://127.0.0.1:${PORT}`));

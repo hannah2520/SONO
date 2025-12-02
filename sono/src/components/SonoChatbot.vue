@@ -71,7 +71,12 @@
 
     <!-- Track recommendations -->
     <div v-if="tracks.length > 0" class="tracks-container">
-      <h3 class="tracks-title">Fresh picks</h3>
+      <div class="tracks-header">
+        <h3 class="tracks-title">Fresh picks</h3>
+        <button @click="viewMoreRecommendations" class="view-more-btn">
+          View More on Discover Page →
+        </button>
+      </div>
       <ul class="tracks-list">
         <li v-for="track in tracks" :key="track.id" class="track-item">
           <img v-if="track.image" :src="track.image" :alt="track.name" class="track-image" />
@@ -93,6 +98,11 @@
 
 <script setup>
 import { ref, nextTick, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useMoodRecommendations } from '@/composables/useMoodRecommendations'
+
+const router = useRouter()
+const { setMoodRecommendations } = useMoodRecommendations()
 
 const TAIL_BEGIN = '<<<JSON:';
 const TAIL_END = '>>>';
@@ -126,7 +136,7 @@ const scrollToBottom = async () => {
 
 const checkAuth = async () => {
   try {
-    const r = await fetch('http://localhost:3000/api/auth/status', { credentials: 'include' })
+    const r = await fetch('http://127.0.0.1:3000/api/auth/status', { credentials: 'include' })
     const j = await r.json()
     auth.value = { connected: !!j.connected, name: j?.profile?.display_name }
   } catch {
@@ -135,11 +145,11 @@ const checkAuth = async () => {
 }
 
 const connectSpotify = () => {
-  window.location.href = 'http://localhost:3000/api/auth/login'
+  window.location.href = 'http://127.0.0.1:3000/api/auth/login'
 }
 
 const disconnectSpotify = async () => {
-  await fetch('http://localhost:3000/api/auth/logout', { method: 'POST', credentials: 'include' })
+  await fetch('http://127.0.0.1:3000/api/auth/logout', { method: 'POST', credentials: 'include' })
   auth.value = { connected: false, name: '' }
 }
 
@@ -148,6 +158,11 @@ const sendQuickMood = (mood) => {
 }
 
 const sendMessage = async (textOverride = null) => {
+  // Handle event object from form submit
+  if (textOverride && typeof textOverride === 'object' && textOverride.preventDefault) {
+    textOverride = null
+  }
+  
   const text = textOverride || userInput.value
   if (!text.trim() || loading.value) return
 
@@ -174,7 +189,7 @@ const sendMessage = async (textOverride = null) => {
   })
 
   try {
-    const response = await fetch('http://localhost:3000/api/chat/stream', {
+    const response = await fetch('http://127.0.0.1:3000/api/chat/stream', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -226,6 +241,13 @@ const sendMessage = async (textOverride = null) => {
     await scrollToBottom()
     await checkAuth()
   }
+}
+
+const viewMoreRecommendations = () => {
+  // Save tracks and mood data to shared state
+  setMoodRecommendations(tracks.value, header.value.mood, header.value.genres)
+  // Navigate to discover page
+  router.push('/discover')
 }
 
 onMounted(() => {
@@ -479,11 +501,35 @@ onMounted(() => {
   border-top: 1px solid #e0e0e0;
 }
 
+.tracks-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
 .tracks-title {
   font-size: 1.1rem;
   font-weight: 600;
-  margin-bottom: 1rem;
   color: #333;
+  margin: 0;
+}
+
+.view-more-btn {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.view-more-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
 .tracks-list {

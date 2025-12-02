@@ -4,6 +4,10 @@
       <!-- Header -->
       <div class="content-header">
         <h1 class="section-title">RECOMMENDED FOR YOU</h1>
+        <p v-if="currentMood" class="mood-subtitle">
+          Mood: <strong>{{ currentMood }}</strong>
+          <span v-if="currentGenres.length"> · Genres: <strong>{{ currentGenres.join(', ') }}</strong></span>
+        </p>
       </div>
 
       <!-- Login prompt if not authenticated -->
@@ -48,10 +52,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useSpotifyAuth } from '@/composables/useSpotifyAuth'
+import { useMoodRecommendations } from '@/composables/useMoodRecommendations'
 
 const { isAuthenticated, login, getAccessToken, handleRedirectCallback } = useSpotifyAuth()
+const { moodRecommendations, currentMood, currentGenres } = useMoodRecommendations()
+
 const searchTerm = ref('')
 const tracks = ref([])
 const recommendations = ref([])
@@ -62,6 +69,32 @@ onMounted(async () => {
     await handleRedirectCallback()
   } catch (err) {
     console.error('Spotify callback failed:', err)
+  }
+  
+  // Load mood recommendations if available
+  if (moodRecommendations.value.length > 0) {
+    tracks.value = moodRecommendations.value.map(track => ({
+      title: track.name || track.title,
+      artist: track.artists || track.artist,
+      image: track.image,
+      track_id: track.id || track.track_id
+    }))
+    batchIndex = 0
+    updateRecommendations()
+  }
+})
+
+// Watch for mood recommendations changes
+watch(moodRecommendations, (newTracks) => {
+  if (newTracks && newTracks.length > 0) {
+    tracks.value = newTracks.map(track => ({
+      title: track.name || track.title,
+      artist: track.artists || track.artist,
+      image: track.image,
+      track_id: track.id || track.track_id
+    }))
+    batchIndex = 0
+    updateRecommendations()
   }
 })
 async function searchSpotify() {
@@ -124,6 +157,18 @@ function updateRecommendations() {
   background: linear-gradient(90deg, var(--confident), var(--euphoric), var(--flirty));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  margin-bottom: 0.5rem;
+}
+
+.mood-subtitle {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+}
+
+.mood-subtitle strong {
+  color: #fff;
+  font-weight: 700;
 }
 
 /* Search bar */
