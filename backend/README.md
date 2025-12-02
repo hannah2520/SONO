@@ -1,6 +1,6 @@
 # SONO Backend Server
 
-Backend API server for the SONO application with OpenAI integration.
+Backend API server for the SONO application with OpenAI and Spotify integration for mood-based music recommendations.
 
 ## Setup
 
@@ -12,7 +12,17 @@ npm install
 
 2. Configure environment variables:
    - Open `.env` file
-   - Replace `your_openai_api_key_here` with your actual OpenAI API key
+   - Add your API keys:
+     - `OPENAI_API_KEY`: Your OpenAI API key
+     - `SPOTIFY_CLIENT_ID`: Your Spotify Client ID
+     - `SPOTIFY_CLIENT_SECRET`: Your Spotify Client Secret
+
+## Getting Spotify Credentials
+
+1. Go to https://developer.spotify.com/dashboard
+2. Log in with your Spotify account
+3. Create a new app
+4. Copy your Client ID and Client Secret
 
 ## Running the Server
 
@@ -34,31 +44,27 @@ The server will run on `http://localhost:3000`
 - **GET** `/api/health`
 - Returns server status
 
-### Chat with AI
+### Chat with AI (Mood-based Music Recommendations)
 - **POST** `/api/chat`
 - Body:
   ```json
   {
-    "message": "Your message here",
-    "conversationHistory": [] // Optional: previous messages
+    "messages": [
+      { "role": "user", "content": "I'm feeling happy" },
+      { "role": "assistant", "content": "..." }
+    ]
   }
   ```
-- Returns AI response
+- Returns:
+  - AI response with mood analysis
+  - Genre recommendations
+  - Track recommendations from Spotify
+  - Audio features
 
-## Example Usage
+## How It Works
 
-```javascript
-// From your frontend
-const response = await fetch('http://localhost:3000/api/chat', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    message: 'Hello, can you help me find music for my mood?',
-  }),
-});
+1. User sends a mood/feeling message
+2. OpenAI analyzes the mood and suggests genres/audio features
+3. Backend queries Spotify for matching tracks
+4. Returns curated music recommendations with preview links
 
-const data = await response.json();
-console.log(data.message); // AI's response
-```
