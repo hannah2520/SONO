@@ -65,8 +65,9 @@ import { useSpotifyAuth } from '@/composables/useSpotifyAuth'
 import { useMoodRecommendations } from '@/composables/useMoodRecommendations'
 
 const { isAuthenticated, login, getAccessToken, handleRedirectCallback } = useSpotifyAuth()
-const { moodRecommendations, currentMood, currentGenres, clearMoodRecommendations } = useMoodRecommendations()
+const { moodRecommendations, currentMood, currentGenres, clearMoodRecommendations, setMoodRecommendations } = useMoodRecommendations()
 
+const searchTerm = ref('')
 const tracks = ref([])
 const recommendations = ref([])
 let batchIndex = 0
@@ -148,6 +149,10 @@ async function searchByMood() {
               track_id: track.id
             }))
             tracks.value = newTracks
+            
+            // Save mood and genres to shared state
+            setMoodRecommendations(newTracks, payload.mood, payload.genres)
+            
             batchIndex = 0
             updateRecommendations()
           } catch (e) {
