@@ -186,7 +186,13 @@ async function extractMoodGenres(messages) {
   const sys = `You are SONO's music mood expert.
 Return ONLY JSON:
 {"mood":"","genres":[],"artists_hint":[],"features":{"target_valence":0.0,"target_energy":0.0,"target_danceability":0.0},"reason":""}
-- Genres must be Spotify seed genres (kebab-case).`;
+
+Detect the user's mood from the conversation and return ONE of these moods (lowercase):
+sad, happy, energetic, chill, romantic, angry, melancholic, excited, calm, nostalgic, confident, dreamy, focused, party, relaxed
+
+- Choose the mood that best matches the user's emotional state
+- Genres must be Spotify seed genres (kebab-case)
+- Be consistent with mood detection across the conversation`;
 
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
@@ -199,10 +205,17 @@ Return ONLY JSON:
     return JSON.parse(completion.choices?.[0]?.message?.content || '{}');
   } catch {
     const last = messages.filter((m) => m.role === 'user').slice(-1)[0]?.content || '';
-    const mood = /sad|down|blue/i.test(last) ? 'sad' :
-                 /happy|excited|joy/i.test(last) ? 'happy' :
+    const mood = /sad|down|blue|melancholic/i.test(last) ? 'sad' :
+                 /happy|joy/i.test(last) ? 'happy' :
                  /chill|calm|relax/i.test(last) ? 'chill' :
-                 /angry|mad|frustrated/i.test(last) ? 'angry' : 'mixed';
+                 /angry|mad|frustrated/i.test(last) ? 'angry' :
+                 /excited|energetic|pumped/i.test(last) ? 'energetic' :
+                 /romantic|love/i.test(last) ? 'romantic' :
+                 /party|celebration/i.test(last) ? 'party' :
+                 /nostalgic|memories/i.test(last) ? 'nostalgic' :
+                 /confident|powerful/i.test(last) ? 'confident' :
+                 /dreamy|ethereal/i.test(last) ? 'dreamy' :
+                 /focus|study|work/i.test(last) ? 'focused' : 'happy';
     return { mood, genres: [], artists_hint: [], features: {}, reason: `Mood: ${mood}` };
   }
 }

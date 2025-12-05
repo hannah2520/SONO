@@ -318,9 +318,14 @@ const viewMoreRecommendations = () => {
 }
 
 function goToDiscoverWithMood() {
-  if (detectedMood.value) {
+  if (detectedMood.value && tracks.value.length > 0) {
+    // Save tracks and mood data to shared state
+    setMoodRecommendations(tracks.value, detectedMood.value, header.value.genres)
     // Navigate to discover page with mood as query parameter
-    router.push({ path: '/discover', query: { mood: detectedMood.value } })
+    router.push({ path: '/discover', query: { mood: detectedMood.value, autoSearch: 'true' } })
+  } else if (detectedMood.value) {
+    // Navigate with mood even if no tracks yet
+    router.push({ path: '/discover', query: { mood: detectedMood.value, autoSearch: 'true' } })
   } else {
     router.push('/discover')
   }

@@ -49,9 +49,13 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useSpotifyAuth } from '@/composables/useSpotifyAuth'
+import { useMoodRecommendations } from '@/composables/useMoodRecommendations'
 
+const route = useRoute()
 const { isAuthenticated, login, getAccessToken, handleRedirectCallback } = useSpotifyAuth()
+const { moodRecommendations, currentMood, currentGenres } = useMoodRecommendations()
 const searchTerm = ref('')
 const tracks = ref([])
 const recommendations = ref([])
@@ -63,7 +67,48 @@ onMounted(async () => {
   } catch (err) {
     console.error('Spotify callback failed:', err)
   }
+  
+  // Check if we have mood recommendations from chatbot
+  if (moodRecommendations.value.length > 0) {
+    tracks.value = moodRecommendations.value.map(track => ({
+      title: track.name || track.title,
+      artist: track.artists || track.artist,
+      image: track.image,
+      track_id: track.id || track.track_id
+    }))
+    batchIndex = 0
+    updateRecommendations()
+  } else if (route.query.mood && route.query.autoSearch === 'true') {
+    // Auto-search if mood provided from chatbot
+    const mood = route.query.mood.toLowerCase()
+    searchTerm.value = getMoodGenre(mood)
+    await searchSpotify()
+  }
 })
+
+// Map moods to specific music genres/styles
+function getMoodGenre(mood) {
+  const moodToGenreMap = {
+    sad: 'RnB soul',
+    happy: 'upbeat melodic pop rock Paramore Lil Uzi Vert energetic',
+    energetic: 'EDM electronic dance',
+    chill: 'lo-fi ambient chill',
+    romantic: 'romantic ballad love songs',
+    angry: 'rock metal alternative',
+    melancholic: 'indie folk acoustic',
+    excited: 'pop dance party',
+    calm: 'classical piano ambient',
+    nostalgic: 'indie alternative 90s',
+    confident: 'hip hop rap',
+    dreamy: 'dream pop shoegaze',
+    focused: 'instrumental jazz focus',
+    party: 'dance pop EDM',
+    relaxed: 'acoustic singer-songwriter'
+  }
+  
+  return moodToGenreMap[mood] || mood
+}
+
 async function searchSpotify() {
   const token = await getAccessToken()
   if (!token) return
