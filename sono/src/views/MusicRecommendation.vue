@@ -114,9 +114,13 @@ async function searchSpotify() {
   if (!token) return
   if (!searchTerm.value) return
 
+  // Check if the search term is a mood and map it to genres
+  const lowerSearchTerm = searchTerm.value.toLowerCase().trim()
+  const genreQuery = getMoodGenre(lowerSearchTerm)
+
   try {
     const res = await fetch(
-      `https://api.spotify.com/v1/search?q=${encodeURIComponent(searchTerm.value)}&type=track&limit=50`,
+      `https://api.spotify.com/v1/search?q=${encodeURIComponent(genreQuery)}&type=track&limit=50`,
       { headers: { Authorization: `Bearer ${token}` } }
     )
     const data = await res.json()
