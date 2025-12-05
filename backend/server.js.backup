@@ -1,0 +1,274 @@
+// Minimal Express API that bridges OpenAI (mood → genres/features) with Spotify (tracks).
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import fetch from 'node-fetch';
+import OpenAI from 'openai';
+
+const app = express();
+app.use(cors());
+app.use(express.json({ limit: '1mb' }));
+
+// --- OpenAI client
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// --- In-memory caches (why: reduce API calls/latency)
+let spotifyTokenCache = { token: null, expiresAt: 0 };
+let genreSeedsCache = { data: null, fetchedAt: 0 };
+
+// --- Spotify helpers
+async function getSpotifyToken() {
+  const now = Date.now();
+  if (spotifyTokenCache.token && now < spotifyTokenCache.expiresAt) return spotifyTokenCache.token;
+
+  const clientId = process.env.SPOTIFY_CLIENT_ID;
+  const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+  
+  if (!clientId || !clientSecret) {
+    throw new Error('Missing SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET in environment variables');
+  }
+
+  const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+
+  const res = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: { Authorization: `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'grant_type=client_credentials'
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error(`Spotify token error: ${res.status} - ${errorText}`);
+    throw new Error(`Spotify token error: ${res.status} - Check your CLIENT_ID and CLIENT_SECRET`);
+  }
+  
+  const data = await res.json();
+  // expires_in is in seconds
+  spotifyTokenCache = {
+    token: data.access_token,
+    expiresAt: now + (data.expires_in - 60) * 1000 // refresh 1 min early
+  };
+  console.log('✓ Spotify token obtained successfully');
+  return spotifyTokenCache.token;
+}
+
+async function fetchGenreSeeds() {
+  const now = Date.now();
+  if (genreSeedsCache.data && now - genreSeedsCache.fetchedAt < 24 * 60 * 60 * 1000) {
+    return genreSeedsCache.data;
+  }
+  
+  // Fallback to a static list of common Spotify genres if API fails
+  const fallbackGenres = [
+    'acoustic', 'afrobeat', 'alt-rock', 'alternative', 'ambient', 'anime', 'black-metal', 'bluegrass',
+    'blues', 'bossanova', 'brazil', 'breakbeat', 'british', 'cantopop', 'chicago-house', 'children',
+    'chill', 'classical', 'club', 'comedy', 'country', 'dance', 'dancehall', 'death-metal', 'deep-house',
+    'detroit-techno', 'disco', 'disney', 'drum-and-bass', 'dub', 'dubstep', 'edm', 'electro', 'electronic',
+    'emo', 'folk', 'forro', 'french', 'funk', 'garage', 'german', 'gospel', 'goth', 'grindcore', 'groove',
+    'grunge', 'guitar', 'happy', 'hard-rock', 'hardcore', 'hardstyle', 'heavy-metal', 'hip-hop', 'holidays',
+    'honky-tonk', 'house', 'idm', 'indian', 'indie', 'indie-pop', 'industrial', 'iranian', 'j-dance',
+    'j-idol', 'j-pop', 'j-rock', 'jazz', 'k-pop', 'kids', 'latin', 'latino', 'malay', 'mandopop',
+    'metal', 'metal-misc', 'metalcore', 'minimal-techno', 'movies', 'mpb', 'new-age', 'new-release',
+    'opera', 'pagode', 'party', 'philippines-opm', 'piano', 'pop', 'pop-film', 'post-dubstep',
+    'power-pop', 'progressive-house', 'psych-rock', 'punk', 'punk-rock', 'r-n-b', 'rainy-day',
+    'reggae', 'reggaeton', 'road-trip', 'rock', 'rock-n-roll', 'rockabilly', 'romance', 'sad',
+    'salsa', 'samba', 'sertanejo', 'show-tunes', 'singer-songwriter', 'ska', 'sleep', 'songwriter',
+    'soul', 'soundtracks', 'spanish', 'study', 'summer', 'swedish', 'synth-pop', 'tango', 'techno',
+    'trance', 'trip-hop', 'turkish', 'work-out', 'world-music'
+  ];
+  
+  try {
+    const token = await getSpotifyToken();
+    const res = await fetch('https://api.spotify.com/v1/recommendations/available-genre-seeds', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) {
+      console.warn(`Spotify genre seeds API returned ${res.status}, using fallback genres`);
+      genreSeedsCache = { data: fallbackGenres, fetchedAt: now };
+      return fallbackGenres;
+    }
+    const data = await res.json();
+    genreSeedsCache = { data: data.genres || fallbackGenres, fetchedAt: now };
+    return genreSeedsCache.data;
+  } catch (error) {
+    console.warn('Failed to fetch Spotify genre seeds, using fallback:', error.message);
+    genreSeedsCache = { data: fallbackGenres, fetchedAt: now };
+    return fallbackGenres;
+  }
+}
+
+function normalizeGenre(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-');
+}
+
+function cleanGenres(rawGenres, seedSet) {
+  const normalized = [...new Set((rawGenres || []).map(normalizeGenre))];
+  const filtered = normalized.filter((g) => seedSet.has(g));
+  // Reasonable defaults if nothing matched
+  return filtered.length ? filtered.slice(0, 3) : ['pop', 'indie', 'alternative'].filter((g) => seedSet.has(g)).slice(0, 3);
+}
+
+// Conservative defaults per mood (why: ensure playable recs if LLM fails)
+function moodToFeatures(mood = '') {
+  const m = mood.toLowerCase();
+  // target values are 0..1; tempo in BPM-ish; Spotify expects e.g. target_valence, min_energy...
+  if (m.includes('happy') || m.includes('excited') || m.includes('joy')) {
+    return { target_valence: 0.85, target_energy: 0.75, target_danceability: 0.7, min_popularity: 40 };
+  }
+  if (m.includes('sad') || m.includes('down') || m.includes('blue')) {
+    return { target_valence: 0.2, target_energy: 0.3, target_instrumentalness: 0.2, min_popularity: 30 };
+  }
+  if (m.includes('chill') || m.includes('calm') || m.includes('relax')) {
+    return { target_valence: 0.6, target_energy: 0.35, target_acousticness: 0.4, target_danceability: 0.5, min_popularity: 30 };
+  }
+  if (m.includes('angry') || m.includes('mad') || m.includes('frustrated')) {
+    return { target_energy: 0.9, target_valence: 0.25, min_popularity: 30 };
+  }
+  if (m.includes('focus') || m.includes('study') || m.includes('work')) {
+    return { target_energy: 0.35, target_instrumentalness: 0.6, target_valence: 0.55, min_popularity: 20 };
+  }
+  return { target_valence: 0.55, target_energy: 0.55, min_popularity: 20 };
+}
+
+// --- OpenAI extraction
+async function extractMoodGenres(messages) {
+  const sys = `You are SONO's music mood expert. 
+Return ONLY valid JSON for this schema:
+{
+  "mood": "short human mood label",
+  "genres": ["kebab-case Spotify genres max 5"],
+  "artists_hint": ["up to 5 artists names string"],
+  "features": {
+    "target_valence": 0..1?,
+    "target_energy": 0..1?,
+    "target_danceability": 0..1?,
+    "target_acousticness": 0..1?,
+    "target_instrumentalness": 0..1?
+  },
+  "reason": "one short sentence"
+}
+Rules:
+- Prefer mainstream Spotify seeds when unsure.
+- Map emotions to musically coherent genres.
+- Keep JSON minimal. No markdown.`;
+
+  // Ask the model focused on the latest user turn but provide brief history
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    temperature: 0.2,
+    response_format: { type: 'json_object' },
+    messages: [{ role: 'system', content: sys }, ...messages.slice(-8)]
+  });
+
+  let parsed = null;
+  try {
+    parsed = JSON.parse(completion.choices?.[0]?.message?.content || '{}');
+  } catch {
+    parsed = null;
+  }
+
+  // Fallback if parse fails
+  if (!parsed || typeof parsed !== 'object') {
+    const last = messages.filter((m) => m.role === 'user').slice(-1)[0]?.content || '';
+    const mood = /sad|down|blue/i.test(last)
+      ? 'sad'
+      : /happy|excited|joy/i.test(last)
+      ? 'happy'
+      : /chill|calm|relax/i.test(last)
+      ? 'chill'
+      : /angry|mad|frustrated/i.test(last)
+      ? 'angry'
+      : /focus|study|work/i.test(last)
+      ? 'focus'
+      : 'mixed';
+    parsed = { mood, genres: [], artists_hint: [], features: {}, reason: `Based on keywords: ${mood}` };
+  }
+  return parsed;
+}
+
+// --- Chat route
+app.post('/api/chat', async (req, res) => {
+  try {
+    const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
+    if (!process.env.OPENAI_API_KEY) throw new Error('Missing OPENAI_API_KEY');
+    if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET)
+      throw new Error('Missing Spotify credentials');
+
+    const ai = await extractMoodGenres(messages);
+
+    const seedsArr = await fetchGenreSeeds();
+    const seedSet = new Set(seedsArr.map(normalizeGenre));
+
+    const genresClean = cleanGenres(ai.genres, seedSet);
+    const inferredFeatures = Object.keys(ai.features || {}).length ? ai.features : moodToFeatures(ai.mood);
+
+    const token = await getSpotifyToken();
+    const params = new URLSearchParams();
+    params.set('limit', '20');
+    
+    // Ensure we have at least one genre seed (Spotify requires at least 1 seed)
+    const genresToUse = genresClean.length > 0 ? genresClean.slice(0, 5) : ['pop'];
+    params.set('seed_genres', genresToUse.join(','));
+
+    // Only pass whitelisted numeric features
+    const whitelist = [
+      'target_valence',
+      'target_energy',
+      'target_danceability',
+      'target_acousticness',
+      'target_instrumentalness',
+      'min_popularity'
+    ];
+    for (const key of whitelist) {
+      const v = inferredFeatures[key];
+      if (typeof v === 'number' && !Number.isNaN(v)) params.set(key, String(v));
+    }
+
+    console.log('Spotify API request:', `https://api.spotify.com/v1/recommendations?${params.toString()}`);
+    
+    const recRes = await fetch(`https://api.spotify.com/v1/recommendations?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!recRes.ok) {
+      const errorText = await recRes.text();
+      console.error(`Spotify recommendations error: ${recRes.status} - ${errorText}`);
+      throw new Error(`Spotify recommendations: ${recRes.status} - Check that your Spotify credentials are valid and the app has proper permissions`);
+    }
+    const rec = await recRes.json();
+
+    const tracks = (rec.tracks || []).map((t) => ({
+      id: t.id,
+      name: t.name,
+      artists: (t.artists || []).map((a) => a.name).join(', '),
+      url: t.external_urls?.spotify,
+      preview_url: t.preview_url,
+      image: t.album?.images?.[1]?.url || t.album?.images?.[0]?.url || null
+    }));
+
+    const assistantText =
+      `I'm hearing **${ai.mood || 'your vibe'}** — trying **${genresClean.join(', ')}**.` +
+      (ai.reason ? ` ${ai.reason}` : '') +
+      (ai.artists_hint?.length ? ` Artists to try: ${ai.artists_hint.slice(0, 5).join(', ')}.` : '');
+
+    res.json({
+      ok: true,
+      assistant: assistantText,
+      mood: ai.mood,
+      genres: genresClean,
+      features: inferredFeatures,
+      tracks
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: String(err?.message || err) });
+  }
+});
+
+// Health check
+app.get('/api/health', (_req, res) => res.json({ ok: true }));
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`🚀 SONO chatbot API listening on http://localhost:${PORT}`));
