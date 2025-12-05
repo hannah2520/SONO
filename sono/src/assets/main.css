@@ -1,7 +1,7 @@
 :root {
   --euphoric: #a18dd6;
   --melancholy: #89c1f5;
-  --serene: #90e6d5;
+  --serene: #73bdad;
   --flirty: #f584b1;
   --hype: #f58b27;
   --balanced: #efeeeb;
@@ -37,6 +37,7 @@ body {
   padding: 0;
   height: 100%;
   /* full viewport */
+  background: var(--balanced);
 }
 
 #app {
@@ -70,7 +71,7 @@ h6 {
 
 body,
 p,
-li {
+li, textarea {
   font-family: 'Arial Nova', sans-serif;
 }
 
