@@ -67,6 +67,6 @@ app.get('/health', (req, res) => {
 // })
 const PORT = process.env.PORT || 10000
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 SONO chatbot API on port ${PORT}`)
+app.listen(PORT, () => {
+  console.log(`🚀 SONO chatbot API listening on port ${PORT}`)
 })
