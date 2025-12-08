@@ -15,7 +15,7 @@ import authRoutes from './routes/auth.js'
 import chatRoutes from './routes/chat.js'
 
 const app = express()
-const PORT = process.env.PORT || 3000
+// const PORT = process.env.PORT || 3000
 
 // Middleware
 app.use(
@@ -61,7 +61,12 @@ app.get('/health', (req, res) => {
 })
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`🎵 SONO Backend running on http://localhost:${PORT}`)
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`)
+// app.listen(PORT, () => {
+//   console.log(`🎵 SONO Backend running on http://localhost:${PORT}`)
+//   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`)
+// })
+const PORT = process.env.PORT || 10000
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 SONO chatbot API on port ${PORT}`)
 })
