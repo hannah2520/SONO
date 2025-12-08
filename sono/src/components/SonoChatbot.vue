@@ -159,6 +159,8 @@ import { useMoodRecommendations } from '@/composables/useMoodRecommendations'
 const router = useRouter()
 const { setMoodRecommendations } = useMoodRecommendations()
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+
 const TAIL_BEGIN = '<<<JSON:';
 const TAIL_END = '>>>';
 
@@ -192,7 +194,7 @@ const scrollToBottom = async () => {
 
 const checkAuth = async () => {
   try {
-    const r = await fetch('http://127.0.0.1:3000/api/auth/status', { credentials: 'include' })
+    const r = await fetch(`${API_URL}/api/auth/status`, { credentials: 'include' })
     const j = await r.json()
     auth.value = { connected: !!j.connected, name: j?.profile?.display_name }
   } catch {
@@ -201,11 +203,11 @@ const checkAuth = async () => {
 }
 
 const connectSpotify = () => {
-  window.location.href = 'http://127.0.0.1:3000/api/auth/login'
+  window.location.href = `${API_URL}/api/auth/login`
 }
 
 const disconnectSpotify = async () => {
-  await fetch('http://127.0.0.1:3000/api/auth/logout', { method: 'POST', credentials: 'include' })
+  await fetch(`${API_URL}/api/auth/logout`, { method: 'POST', credentials: 'include' })
   auth.value = { connected: false, name: '' }
 }
 
@@ -245,7 +247,7 @@ const sendMessage = async (textOverride = null) => {
   })
 
   try {
-    const response = await fetch('http://127.0.0.1:3000/api/chat/stream', {
+    const response = await fetch(`${API_URL}/api/chat/stream`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
