@@ -34,19 +34,34 @@ app.use(
 )
 app.use(express.json())
 
-// Session/cookie middleware (simple in-memory store for dev)
+// Session/cookie middleware (simple in-memory store for dev/prod)
 const sessions = new Map()
+
 app.use((req, res, next) => {
-  const sessionId = req.headers.cookie?.match(/sessionId=([^;]+)/)?.[1] || null
-  req.session = sessionId ? sessions.get(sessionId) || {} : {}
-  req.sessionId = sessionId || generateSessionId()
-  // Ensure the session object is stored so handlers can set values on it
-  if (!sessions.has(req.sessionId)) {
-    sessions.set(req.sessionId, req.session)
-  } else {
-    // make sure the map references the current session object
-    sessions.set(req.sessionId, req.session)
+  const cookieHeader = req.headers.cookie || ''
+  const match = cookieHeader.match(/sessionId=([^;]+)/)
+  const existingId = match ? match[1] : null
+
+  // Find or create session
+  const sessionId = existingId || generateSessionId()
+  const session = sessions.get(sessionId) || {}
+  sessions.set(sessionId, session)
+
+  req.sessionId = sessionId
+  req.session = session
+
+  // Build cookie value
+  const isProd = process.env.NODE_ENV === 'production'
+  let cookie = `sessionId=${sessionId}; Path=/; HttpOnly`
+
+  // needed for cross-site (hanniekwak.com → sono-ct2p.onrender.com)
+  if (isProd) {
+    cookie += '; SameSite=None; Secure'
   }
+
+  // Always send cookie, even on redirects
+  res.setHeader('Set-Cookie', cookie)
+
   next()
 })
 
