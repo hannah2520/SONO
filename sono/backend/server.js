@@ -69,17 +69,6 @@ function generateSessionId() {
   return Math.random().toString(36).substring(2, 15)
 }
 
-// Set session cookie
-app.use((req, res, next) => {
-  const originalSend = res.send
-  res.send = function (data) {
-    if (req.sessionId && !res.getHeader('Set-Cookie')) {
-      res.setHeader('Set-Cookie', `sessionId=${req.sessionId}; Path=/; HttpOnly`)
-    }
-    return originalSend.call(this, data)
-  }
-  next()
-})
 // Debug route to inspect env (non-secret)
 app.get('/debug-env', (req, res) => {
   res.json({

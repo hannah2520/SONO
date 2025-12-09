@@ -60,7 +60,7 @@ const { moodRecommendations, currentMood, currentSearchTerm } = useMoodRecommend
 const route = useRoute()
 
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:10000'
+const API_URL = import.meta.env.VITE_API_URL
 
 const loading = ref(true)
 const connected = ref(false)

@@ -164,7 +164,7 @@ import { useMoodRecommendations } from '@/composables/useMoodRecommendations'
 const router = useRouter()
 const { setMoodRecommendations } = useMoodRecommendations()
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+const API_URL = import.meta.env.VITE_API_URL
 
 const TAIL_BEGIN = '<<<JSON:';
 const TAIL_END = '>>>';
@@ -235,37 +235,32 @@ const sendMessage = async (textOverride = null) => {
   }
 
   // Add user message
-  messages.value.push({
-    role: 'user',
-    content: userMessage
-  })
-
+  messages.value.push({ role: 'user', content: userMessage })
   await scrollToBottom()
+
   loading.value = true
   tracks.value = []
 
-  // Prepare streaming assistant message
+  // Prepare assistant message
   const assistantIndex = messages.value.length
-  messages.value.push({
-    role: 'assistant',
-    content: ''
-  })
+  messages.value.push({ role: 'assistant', content: '' })
+
+  let assistantText = ''          // 👈 new
+  let buf = ''
+  let payload = null              // 👈 store JSON tail payload if/when we get it
 
   try {
     const response = await fetch(`${API_URL}/api/chat/stream`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify({
-        messages: messages.value.slice(0, -1) // Exclude the empty assistant message
+        messages: messages.value.slice(0, -1), // Exclude the empty assistant message
       }),
     })
 
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
-    let buf = ''
 
     while (true) {
       const { value, done } = await reader.read()
@@ -274,59 +269,80 @@ const sendMessage = async (textOverride = null) => {
       const chunk = decoder.decode(value, { stream: true })
       buf += chunk
 
-      // Check for trailing JSON
-      const idx = buf.indexOf(TAIL_BEGIN)
+      let idx = buf.indexOf(TAIL_BEGIN)
+
       if (idx !== -1) {
+        // Everything before TAIL_BEGIN is human-facing text
         const textPart = buf.slice(0, idx)
-        messages.value[assistantIndex].content = textPart
+        if (textPart) {
+          assistantText += textPart
+          messages.value[assistantIndex].content = assistantText
+        }
 
         const closeIdx = buf.indexOf(TAIL_END, idx + TAIL_BEGIN.length)
         if (closeIdx !== -1) {
           const jsonRaw = buf.slice(idx + TAIL_BEGIN.length, closeIdx)
           try {
-            const payload = JSON.parse(jsonRaw)
+            payload = JSON.parse(jsonRaw)
 
-header.value = {
-  mood: payload.mood,
-  genres: payload.genres || [],
-}
-detectedMood.value = payload.mood || ''
+            // 🔧 normalize + store mood + tracks like before
+            header.value = {
+              mood: payload.mood,
+              genres: payload.genres || [],
+            }
+            detectedMood.value = payload.mood || ''
 
-// 🔧 Normalize tracks from the AI payload to a shape Discover expects
-const normalizedTracks = (payload.tracks || [])
-  .filter((t) => t) // no nulls
-  .map((t) => ({
-    id: t.id || t.track_id, // either is fine
-    name: t.name || t.title || 'Unknown title',
-    artists: Array.isArray(t.artists) ? t.artists.join(', ') : (t.artists || t.artist || 'Unknown artist'),
-    image:
-      t.image ||
-      t.albumArt ||
-      (t.album && t.album.images && t.album.images[0] && t.album.images[0].url) ||
-      '',
-    preview_url: t.preview_url || '',
-    url: t.url || (t.external_urls && t.external_urls.spotify) || '',
-  }))
-  .filter((t) => t.id) // must have an id for embed
+            const normalizedTracks = (payload.tracks || [])
+              .filter((t) => t)
+              .map((t) => ({
+                id: t.id || t.track_id,
+                name: t.name || t.title || 'Unknown title',
+                artists: Array.isArray(t.artists)
+                  ? t.artists.join(', ')
+                  : t.artists || t.artist || 'Unknown artist',
+                image:
+                  t.image ||
+                  t.albumArt ||
+                  (t.album && t.album.images && t.album.images[0] && t.album.images[0].url) ||
+                  '',
+                preview_url: t.preview_url || '',
+                url: t.url || (t.external_urls && t.external_urls.spotify) || '',
+              }))
+              .filter((t) => t.id)
 
-tracks.value = normalizedTracks
+            tracks.value = normalizedTracks
 
-if (tracks.value.length > 0) {
-  // If you have a separate "queryLabel" in your payload, use that here
-  const searchLabel = payload.queryLabel || payload.mood || ''
-  setMoodRecommendations(tracks.value, payload.mood, payload.genres || [], searchLabel)
-}
-
+            if (tracks.value.length > 0) {
+              const searchLabel = payload.queryLabel || payload.mood || ''
+              setMoodRecommendations(tracks.value, payload.mood, payload.genres || [], searchLabel)
+            }
           } catch (e) {
             console.error('Failed to parse payload:', e)
           }
-          buf = buf.slice(closeIdx + TAIL_END.length)
+
+          // We assume nothing meaningful comes after the JSON tail
+          buf = ''
+          break
+        } else {
+          // We’ve seen the start of JSON but not the end yet –
+          // keep only the tail fragment for the next iteration.
+          buf = buf.slice(idx)
         }
       } else {
-        messages.value[assistantIndex].content = buf
+        // No JSON marker yet – all of buf is text
+        assistantText += buf
+        messages.value[assistantIndex].content = assistantText
+        buf = ''
       }
 
       await scrollToBottom()
+    }
+
+    // 🛟 Fallback: if for some reason the model only emitted JSON
+    // and no text, don’t leave an empty bubble.
+    if (!assistantText && header.value.mood) {
+      assistantText = `Got it — curating ${header.value.mood.toLowerCase()} tracks for you 🎧`
+      messages.value[assistantIndex].content = assistantText
     }
   } catch (error) {
     console.error('Error sending message:', error)
