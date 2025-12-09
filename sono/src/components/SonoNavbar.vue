@@ -25,25 +25,82 @@
       <li><RouterLink to="/contact" :class="{ active: isActive('/contact') }">Contact</RouterLink></li>
     </ul>
 
-    <div class="action-section">
-      <button v-if="!isAuthenticated" class="spotify-btn" @click="login">
-        Connect Spotify
-      </button>
-      <button v-else class="spotify-btn" @click="logout">
-        Logout
-      </button>
-    </div>
+<div class="action-section">
+  <button
+    v-if="!loading && !connected"
+    class="spotify-btn"
+    @click="connectSpotify"
+  >
+    Connect Spotify
+  </button>
+
+  <div v-else-if="!loading && connected" class="spotify-status">
+    <span class="spotify-user">
+      Connected as {{ profile?.display_name || profile?.email || 'Spotify User' }}
+    </span>
+    <button class="spotify-btn" @click="logoutSpotify">
+      Logout
+    </button>
+  </div>
+</div>
+
   </nav>
 </template>
 
 <script setup>
+import { ref, onMounted } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
-import { useSpotifyAuth } from '@/composables/useSpotifyAuth'
 
-const { isAuthenticated, login, logout } = useSpotifyAuth()
 const route = useRoute()
 const isActive = (path) => route.path === path
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:10000'
+
+const loading = ref(true)
+const connected = ref(false)
+const profile = ref(null)
+
+async function fetchStatus() {
+  try {
+    const res = await fetch(`${API_URL}/api/auth/status`, {
+      credentials: 'include',
+    })
+    if (!res.ok) throw new Error('Status request failed')
+    const data = await res.json()
+    connected.value = !!data.connected
+    profile.value = data.profile
+  } catch (e) {
+    console.error('Error fetching Spotify status:', e)
+    connected.value = false
+    profile.value = null
+  } finally {
+    loading.value = false
+  }
+}
+
+function connectSpotify() {
+  window.location.href = `${API_URL}/api/auth/login`
+}
+
+async function logoutSpotify() {
+  try {
+    await fetch(`${API_URL}/api/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    })
+  } catch (e) {
+    console.error('Error logging out of Spotify:', e)
+  } finally {
+    connected.value = false
+    profile.value = null
+  }
+}
+
+onMounted(() => {
+  fetchStatus()
+})
 </script>
+
 
 <style scoped>
 .navbar {

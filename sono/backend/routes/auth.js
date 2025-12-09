@@ -6,7 +6,7 @@ const router = express.Router()
 const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID
 const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET
 const SPOTIFY_REDIRECT_URI =
-  process.env.VITE_SPOTIFY_REDIRECT_URI || 'http://127.0.0.1:5173/sono/callback'
+  process.env.VITE_SPOTIFY_REDIRECT_URI || 'http://127.0.0.1:10000/api/auth/callback'
 const APP_ORIGIN = process.env.APP_ORIGIN || 'http://localhost:5173'
 
 // Session storage (in-memory for dev; use Redis in production)

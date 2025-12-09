@@ -7,13 +7,15 @@
       </div>
 
       <!-- Login prompt if not authenticated -->
-      <div v-if="!isAuthenticated" class="login-prompt">
-        <button @click="login"><img src='/connectSpotifyButton.svg'/></button>
+      <div v-if="!loading && !connected" class="login-prompt">
+        <button @click="connectSpotify">
+          <img src="/connectSpotifyButton.svg" />
+        </button>
         <p>Please log in to see recommendations.</p>
       </div>
 
       <!-- Search bar -->
-      <div v-else class="search-bar">
+      <div v-else-if="connected" class="search-bar">
         <input
           type="text"
           v-model="searchTerm"
@@ -27,7 +29,7 @@
       </div>
 
       <!-- Recommendations Grid -->
-      <section v-if="isAuthenticated && recommendations.length" class="grid">
+      <section v-if="connected && recommendations.length" class="grid">
         <article v-for="(item, i) in recommendations" :key="i" class="tile">
           <div class="cover-wrap">
             <img :src="item.image" :alt="`${item.title} cover`" />
@@ -39,8 +41,8 @@
             width="100%"
             height="80"
             frameborder="0"
-            allow="encrypted-media">
-          </iframe>
+            allow="encrypted-media"
+          ></iframe>
         </article>
       </section>
     </main>
@@ -50,41 +52,43 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { useSpotifyAuth } from '@/composables/useSpotifyAuth'
 import { useMoodRecommendations } from '@/composables/useMoodRecommendations'
 
 const route = useRoute()
-const { isAuthenticated, login, getAccessToken, handleRedirectCallback } = useSpotifyAuth()
-const { moodRecommendations, currentMood, currentGenres } = useMoodRecommendations()
+const { moodRecommendations } = useMoodRecommendations()
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:10000'
+
+const loading = ref(true)
+const connected = ref(false)
+const profile = ref(null)
+
 const searchTerm = ref('')
 const tracks = ref([])
 const recommendations = ref([])
 let batchIndex = 0
 
-onMounted(async () => {
+async function fetchStatus() {
   try {
-    await handleRedirectCallback()
+    const res = await fetch(`${API_URL}/api/auth/status`, {
+      credentials: 'include',
+    })
+    if (!res.ok) throw new Error('Status request failed')
+    const data = await res.json()
+    connected.value = !!data.connected
+    profile.value = data.profile
   } catch (err) {
-    console.error('Spotify callback failed:', err)
+    console.error('Error fetching Spotify status:', err)
+    connected.value = false
+    profile.value = null
+  } finally {
+    loading.value = false
   }
-  
-  // Check if we have mood recommendations from chatbot
-  if (moodRecommendations.value.length > 0) {
-    tracks.value = moodRecommendations.value.map(track => ({
-      title: track.name || track.title,
-      artist: track.artists || track.artist,
-      image: track.image,
-      track_id: track.id || track.track_id
-    }))
-    batchIndex = 0
-    updateRecommendations()
-  } else if (route.query.mood && route.query.autoSearch === 'true') {
-    // Auto-search if mood provided from chatbot
-    const mood = route.query.mood.toLowerCase()
-    searchTerm.value = getMoodGenre(mood)
-    await searchSpotify()
-  }
-})
+}
+
+function connectSpotify() {
+  window.location.href = `${API_URL}/api/auth/login`
+}
 
 // Map moods to specific music genres/styles
 function getMoodGenre(mood) {
@@ -103,37 +107,41 @@ function getMoodGenre(mood) {
     dreamy: 'dream pop shoegaze',
     focused: 'instrumental jazz focus',
     party: 'dance pop EDM',
-    relaxed: 'acoustic singer-songwriter'
+    relaxed: 'acoustic singer-songwriter',
   }
-  
+
   return moodToGenreMap[mood] || mood
 }
 
 async function searchSpotify() {
-  const token = await getAccessToken()
-  if (!token) return
+  if (!connected.value) return
   if (!searchTerm.value) return
 
-  // Check if the search term is a mood and map it to genres
   const lowerSearchTerm = searchTerm.value.toLowerCase().trim()
   const genreQuery = getMoodGenre(lowerSearchTerm)
 
   try {
     const res = await fetch(
-      `https://api.spotify.com/v1/search?q=${encodeURIComponent(genreQuery)}&type=track&limit=50`,
-      { headers: { Authorization: `Bearer ${token}` } }
+      `${API_URL}/api/spotify/search?q=${encodeURIComponent(genreQuery)}`,
+      {
+        credentials: 'include',
+      }
     )
+    if (!res.ok) throw new Error('Spotify search failed')
     const data = await res.json()
-    tracks.value = data.tracks.items.map(track => ({
-      title: track.name,
-      artist: track.artists.map(a => a.name).join(', '),
-      image: track.album.images[0]?.url,
-      track_id: track.id
+
+    // Expect backend to return { tracks: [...] }
+    tracks.value = (data.tracks || []).map((track) => ({
+      title: track.title,
+      artist: track.artist,
+      image: track.image,
+      track_id: track.track_id,
     }))
+
     batchIndex = 0
     updateRecommendations()
   } catch (err) {
-    console.error(err)
+    console.error('Error searching Spotify:', err)
   }
 }
 
@@ -147,7 +155,28 @@ function showNextBatch() {
 function updateRecommendations() {
   recommendations.value = tracks.value.slice(batchIndex, batchIndex + 3)
 }
+
+onMounted(async () => {
+  await fetchStatus()
+
+  // If mood tracks already came from chatbot, use those first
+  if (moodRecommendations.value.length > 0) {
+    tracks.value = moodRecommendations.value.map((track) => ({
+      title: track.name || track.title,
+      artist: track.artists || track.artist,
+      image: track.image,
+      track_id: track.id || track.track_id,
+    }))
+    batchIndex = 0
+    updateRecommendations()
+  } else if (route.query.mood && route.query.autoSearch === 'true') {
+    const mood = route.query.mood.toLowerCase()
+    searchTerm.value = getMoodGenre(mood)
+    await searchSpotify()
+  }
+})
 </script>
+
 
 <style scoped>
 :root {

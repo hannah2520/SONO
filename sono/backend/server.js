@@ -8,11 +8,19 @@ import process from 'process'
 // Load env vars from parent directory (.env in root)
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
-dotenv.config({ path: `${__dirname}/../.env` })
+dotenv.config({ path: `${__dirname}/.env` })
 
-// Import routes
-import authRoutes from './routes/auth.js'
-import chatRoutes from './routes/chat.js'
+// Debug: log key env values used by auth flow (non-secret)
+console.log('Loaded env:', {
+  SPOTIFY_CLIENT_ID: process.env.SPOTIFY_CLIENT_ID ? 'SET' : 'MISSING',
+  VITE_SPOTIFY_REDIRECT_URI: process.env.VITE_SPOTIFY_REDIRECT_URI || null,
+  APP_ORIGIN: process.env.APP_ORIGIN || null,
+  PORT: process.env.PORT || null,
+})
+
+// Import routes after dotenv so environment variables are available to route modules
+const { default: chatRoutes } = await import('./routes/chat.js')
+const { default: spotifyRouter } = await import('./routes/spotify.js')
 
 const app = express()
 // const PORT = process.env.PORT || 3000
@@ -32,6 +40,13 @@ app.use((req, res, next) => {
   const sessionId = req.headers.cookie?.match(/sessionId=([^;]+)/)?.[1] || null
   req.session = sessionId ? sessions.get(sessionId) || {} : {}
   req.sessionId = sessionId || generateSessionId()
+  // Ensure the session object is stored so handlers can set values on it
+  if (!sessions.has(req.sessionId)) {
+    sessions.set(req.sessionId, req.session)
+  } else {
+    // make sure the map references the current session object
+    sessions.set(req.sessionId, req.session)
+  }
   next()
 })
 
@@ -50,10 +65,21 @@ app.use((req, res, next) => {
   }
   next()
 })
+// Debug route to inspect env (non-secret)
+app.get('/debug-env', (req, res) => {
+  res.json({
+    SPOTIFY_CLIENT_ID: !!process.env.SPOTIFY_CLIENT_ID,   // true/false only
+    SPOTIFY_CLIENT_SECRET: !!process.env.SPOTIFY_CLIENT_SECRET, // true/false
+    VITE_SPOTIFY_REDIRECT_URI: process.env.VITE_SPOTIFY_REDIRECT_URI || null,
+    APP_ORIGIN: process.env.APP_ORIGIN || null,
+    PORT: process.env.PORT || null,
+  })
+})
 
 // Routes
-app.use('/api/auth', authRoutes)
+app.use('/api/auth', spotifyRouter)
 app.use('/api/chat', chatRoutes)
+app.use('/api/spotify', spotifyRouter)
 
 // Health check
 app.get('/health', (req, res) => {

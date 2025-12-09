@@ -10,11 +10,20 @@
           </p>
 
           <div class="hero-cta">
-            <button v-if="!isAuthenticated" class="spotify-btn" @click="login">
+            <button v-if="!loading && !connected" class="spotify-btn" @click="connectSpotify">
               Connect Spotify
             </button>
-            <RouterLink to="/discover" class="gradient-btn">Explore Recommendations</RouterLink>
+
+            <!-- optional: small label when connected -->
+            <span v-else-if="connected" class="connected-label">
+              Connected to Spotify
+            </span>
+
+            <RouterLink to="/discover" class="gradient-btn">
+              Explore Recommendations
+            </RouterLink>
           </div>
+
 
           <div class="hero-stats">
             <div class="stat"><strong>156</strong><span>New songs / month</span></div>
@@ -37,9 +46,42 @@
 
 <script setup>
 import { RouterLink } from 'vue-router'
-import { useSpotifyAuth } from '@/composables/useSpotifyAuth'
-const { isAuthenticated, login } = useSpotifyAuth()
+import { ref, onMounted } from 'vue'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:10000'
+
+const loading = ref(true)
+const connected = ref(false)
+const profile = ref(null)
+
+async function fetchStatus() {
+  try {
+    const res = await fetch(`${API_URL}/api/auth/status`, {
+      credentials: 'include',
+    })
+    if (!res.ok) throw new Error('Status request failed')
+    const data = await res.json()
+    connected.value = !!data.connected
+    profile.value = data.profile
+  } catch (err) {
+    console.error('Error fetching Spotify status on Home:', err)
+    connected.value = false
+    profile.value = null
+  } finally {
+    loading.value = false
+  }
+}
+
+function connectSpotify() {
+  window.location.href = `${API_URL}/api/auth/login`
+}
+
+onMounted(() => {
+  fetchStatus()
+})
 </script>
+
+
 <style scoped>
 .home-page {
   position: relative;
@@ -120,18 +162,22 @@ const { isAuthenticated, login } = useSpotifyAuth()
     transform: translate3d(-42px, -28px, 0) scale(0.9);
     opacity: 0.92;
   }
+
   25% {
     transform: translate3d(20px, -6px, 0) scale(1.03);
     opacity: 1;
   }
+
   50% {
     transform: translate3d(48px, 26px, 0) scale(1.08);
     opacity: 1;
   }
+
   75% {
     transform: translate3d(-16px, 40px, 0) scale(1.04);
     opacity: 0.97;
   }
+
   100% {
     transform: translate3d(-44px, 56px, 0) scale(0.96);
     opacity: 0.9;
@@ -143,18 +189,22 @@ const { isAuthenticated, login } = useSpotifyAuth()
     transform: translate3d(42px, 48px, 0) scale(0.9);
     opacity: 0.32;
   }
+
   20% {
     transform: translate3d(16px, 14px, 0) scale(1.05);
     opacity: 0.7;
   }
+
   50% {
     transform: translate3d(-36px, -26px, 0) scale(1.16);
     opacity: 0.98;
   }
+
   80% {
     transform: translate3d(-12px, -52px, 0) scale(1.03);
     opacity: 0.6;
   }
+
   100% {
     transform: translate3d(30px, -70px, 0) scale(0.92);
     opacity: 0.35;
@@ -169,19 +219,18 @@ const { isAuthenticated, login } = useSpotifyAuth()
   width: 100%;
   max-width: 1100px;
   position: relative;
-  z-index: 1; /* keep content above blobs */
+  z-index: 1;
+  /* keep content above blobs */
 }
 
 .hero-card {
   display: flex;
   gap: 2rem;
   align-items: stretch;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--confident) 60%, transparent),
-    color-mix(in srgb, var(--euphoric) 60%, transparent),
-    color-mix(in srgb, var(--flirty) 40%, transparent)
-  );
+  background: linear-gradient(135deg,
+      color-mix(in srgb, var(--confident) 60%, transparent),
+      color-mix(in srgb, var(--euphoric) 60%, transparent),
+      color-mix(in srgb, var(--flirty) 40%, transparent));
   backdrop-filter: blur(14px) saturate(130%);
   border-radius: 1.5rem;
   padding: 3rem;
@@ -255,11 +304,9 @@ const { isAuthenticated, login } = useSpotifyAuth()
 
 .tile {
   border-radius: 50%;
-  background: radial-gradient(
-    circle at 30% 30%,
-    rgba(255, 255, 255, 0.12),
-    rgba(255, 255, 255, 0.02)
-  );
+  background: radial-gradient(circle at 30% 30%,
+      rgba(255, 255, 255, 0.12),
+      rgba(255, 255, 255, 0.02));
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.14);
   backdrop-filter: blur(6px);
 }
@@ -302,5 +349,3 @@ const { isAuthenticated, login } = useSpotifyAuth()
   font-weight: 700;
 }
 </style>
-
-

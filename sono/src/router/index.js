@@ -12,11 +12,6 @@ const router = createRouter({
     },
     { path: '/contact', name: 'contact', component: () => import('../views/ContactView.vue') },
     {
-      path: '/callback',
-      name: 'spotify-callback',
-      component: () => import('../views/SpotifyCallback.vue'),
-    },
-    {
       path: '/mood-calendar',
       name: 'mood-calendar',
       component: () => import('../views/MoodCalendar.vue'),
