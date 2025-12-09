@@ -32,7 +32,8 @@
       <section v-if="connected && recommendations.length" class="grid">
         <article v-for="(item, i) in recommendations" :key="i" class="tile">
           <div class="cover-wrap">
-            <img :src="item.image" :alt="`${item.title} cover`" />
+            <img :src="item.image" :alt="item.title + ' cover'" />
+
           </div>
           <a class="title">{{ item.title }}</a>
           <p class="artist">{{ item.artist }}</p>
@@ -54,8 +55,10 @@ import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useMoodRecommendations } from '@/composables/useMoodRecommendations'
 
+
+const { moodRecommendations, currentMood, currentSearchTerm } = useMoodRecommendations()
 const route = useRoute()
-const { moodRecommendations } = useMoodRecommendations()
+
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:10000'
 
@@ -67,6 +70,21 @@ const searchTerm = ref('')
 const tracks = ref([])
 const recommendations = ref([])
 let batchIndex = 0
+function normalizeTracks(rawTracks) {
+  return (rawTracks || [])
+    .filter((t) => t)
+    .map((track) => ({
+      title: track.title || track.name || 'Unknown title',
+      artist: track.artist || track.artists || 'Unknown artist',
+      image:
+        track.image ||
+        track.albumArt ||
+        (track.album && track.album.images && track.album.images[0] && track.album.images[0].url) ||
+        '',
+      track_id: track.track_id || track.id || '',
+    }))
+    .filter((t) => t.track_id) // 🚨 only keep if we have a valid ID
+}
 
 async function fetchStatus() {
   try {
@@ -128,18 +146,11 @@ async function searchSpotify() {
       }
     )
     if (!res.ok) throw new Error('Spotify search failed')
-    const data = await res.json()
+const data = await res.json()
+tracks.value = normalizeTracks(data.tracks)
+batchIndex = 0
+updateRecommendations()
 
-    // Expect backend to return { tracks: [...] }
-    tracks.value = (data.tracks || []).map((track) => ({
-      title: track.title,
-      artist: track.artist,
-      image: track.image,
-      track_id: track.track_id,
-    }))
-
-    batchIndex = 0
-    updateRecommendations()
   } catch (err) {
     console.error('Error searching Spotify:', err)
   }
@@ -159,22 +170,25 @@ function updateRecommendations() {
 onMounted(async () => {
   await fetchStatus()
 
-  // If mood tracks already came from chatbot, use those first
   if (moodRecommendations.value.length > 0) {
-    tracks.value = moodRecommendations.value.map((track) => ({
-      title: track.name || track.title,
-      artist: track.artists || track.artist,
-      image: track.image,
-      track_id: track.id || track.track_id,
-    }))
+    tracks.value = normalizeTracks(moodRecommendations.value)
     batchIndex = 0
     updateRecommendations()
+
+    // 🔁 hydrate search input with AI term if we have it
+    if (currentSearchTerm.value) {
+      searchTerm.value = currentSearchTerm.value
+    } else if (currentMood.value) {
+      searchTerm.value = currentMood.value
+    }
   } else if (route.query.mood && route.query.autoSearch === 'true') {
-    const mood = route.query.mood.toLowerCase()
-    searchTerm.value = getMoodGenre(mood)
+    const mood = String(route.query.mood)
+    searchTerm.value = mood // show AI term as-is
     await searchSpotify()
   }
 })
+
+
 </script>
 
 

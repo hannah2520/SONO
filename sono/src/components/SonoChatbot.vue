@@ -92,10 +92,15 @@
 
         <!-- Discover Page Button (dynamic mood) -->
         <div class="discover-cta">
-          <button @click="goToDiscoverWithMood" class="discover-btn">
-            <span v-if="detectedMood">🎵 Explore {{ detectedMood }} Music →</span>
-            <span v-else>🎵 Explore Music Recommendations →</span>
-          </button>
+          <button
+  @click="goToDiscoverWithMood"
+  class="discover-btn"
+  :disabled="loading"
+>
+  <span v-if="detectedMood">🎵 Explore {{ detectedMood }} Music →</span>
+  <span v-else>🎵 Explore Music Recommendations →</span>
+</button>
+
         </div>
 
         <!-- Track recommendations (still hidden for now) -->
@@ -280,17 +285,38 @@ const sendMessage = async (textOverride = null) => {
           const jsonRaw = buf.slice(idx + TAIL_BEGIN.length, closeIdx)
           try {
             const payload = JSON.parse(jsonRaw)
-            console.log('🎯 Parsed payload:', payload)
-            console.log('🎭 Detected mood:', payload.mood)
-            header.value = { mood: payload.mood, genres: payload.genres }
-            detectedMood.value = payload.mood || '' // Store detected mood for button
-            console.log('✅ detectedMood.value set to:', detectedMood.value)
-            tracks.value = payload.tracks || []
 
-            // Save recommendations to shared state for discover page
-            if (tracks.value.length > 0) {
-              setMoodRecommendations(tracks.value, payload.mood, payload.genres)
-            }
+header.value = {
+  mood: payload.mood,
+  genres: payload.genres || [],
+}
+detectedMood.value = payload.mood || ''
+
+// 🔧 Normalize tracks from the AI payload to a shape Discover expects
+const normalizedTracks = (payload.tracks || [])
+  .filter((t) => t) // no nulls
+  .map((t) => ({
+    id: t.id || t.track_id, // either is fine
+    name: t.name || t.title || 'Unknown title',
+    artists: Array.isArray(t.artists) ? t.artists.join(', ') : (t.artists || t.artist || 'Unknown artist'),
+    image:
+      t.image ||
+      t.albumArt ||
+      (t.album && t.album.images && t.album.images[0] && t.album.images[0].url) ||
+      '',
+    preview_url: t.preview_url || '',
+    url: t.url || (t.external_urls && t.external_urls.spotify) || '',
+  }))
+  .filter((t) => t.id) // must have an id for embed
+
+tracks.value = normalizedTracks
+
+if (tracks.value.length > 0) {
+  // If you have a separate "queryLabel" in your payload, use that here
+  const searchLabel = payload.queryLabel || payload.mood || ''
+  setMoodRecommendations(tracks.value, payload.mood, payload.genres || [], searchLabel)
+}
+
           } catch (e) {
             console.error('Failed to parse payload:', e)
           }

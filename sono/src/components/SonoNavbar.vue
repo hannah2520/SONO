@@ -6,7 +6,12 @@
 
     <ul class="nav-links">
       <li>
-        <RouterLink to="/discover" class="gradient-btn" :class="{ active: isActive('/discover') }">
+        <RouterLink to="/chatbot" class="gradient-btn" :class="{ active: isActive('/chatbot') }">
+          Aria
+        </RouterLink>
+      </li>
+            <li>
+        <RouterLink to="/discover" :class="{ active: isActive('/discover') }">
           Discover
         </RouterLink>
       </li>
@@ -14,11 +19,6 @@
       <li>
         <RouterLink to="/mood-calendar" :class="{ active: isActive('/mood-calendar') }">
           Mood Calendar
-        </RouterLink>
-      </li>
-      <li>
-        <RouterLink to="/chatbot" :class="{ active: isActive('/chatbot') }">
-          AI Chatbot
         </RouterLink>
       </li>
       <li><RouterLink to="/about" :class="{ active: isActive('/about') }">About</RouterLink></li>
