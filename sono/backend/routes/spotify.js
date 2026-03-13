@@ -96,6 +96,34 @@ async function getCachedTasteProfile(req, token) {
   return data
 }
 
+function getCachedSearchResults(req, query) {
+  const cache = req.session.spotifySearchCache || {}
+  const cached = cache[query]
+
+  if (!cached) {
+    return null
+  }
+
+  if (cached.expiresAt <= Date.now()) {
+    delete cache[query]
+    req.session.spotifySearchCache = cache
+    return null
+  }
+
+  return cached.data
+}
+
+function setCachedSearchResults(req, query, tracks) {
+  const cache = req.session.spotifySearchCache || {}
+
+  cache[query] = {
+    data: tracks,
+    expiresAt: Date.now() + 1000 * 60 * 5,
+  }
+
+  req.session.spotifySearchCache = cache
+}
+
 /* -----------------------------
    BUILD SEARCH QUERIES
 ----------------------------- */
@@ -115,7 +143,30 @@ function buildSearchQueries(query, taste) {
     }
   })
 
-  return [...queries].slice(0, 6)
+  return [...queries].slice(0, 4)
+}
+
+function buildFallbackQueries(query) {
+  const normalized = String(query || '').trim()
+
+  if (!normalized) {
+    return []
+  }
+
+  const variants = new Set([normalized])
+  const compact = normalized.replace(/\s+/g, ' ').trim()
+  const punctuationStripped = compact.replace(/[^\w\s&/-]+/g, ' ').replace(/\s+/g, ' ').trim()
+  const firstClause = compact.split(/[,:-]/)[0]?.trim()
+
+  if (punctuationStripped) {
+    variants.add(punctuationStripped)
+  }
+
+  if (firstClause) {
+    variants.add(firstClause)
+  }
+
+  return [...variants].filter(Boolean).slice(0, 3)
 }
 
 /* -----------------------------
@@ -124,18 +175,26 @@ function buildSearchQueries(query, taste) {
 
 async function getPersonalizedTracks(token, queries) {
   const results = []
+  const searches = await Promise.allSettled(
+    queries.map((query) => {
+      const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(
+        query,
+      )}&type=track&limit=20&offset=0`
 
-  for (const query of queries) {
-    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(
-      query,
-    )}&type=track&limit=50&offset=0`
+      return spotifyFetchJson(url, token)
+    }),
+  )
 
-    const data = await spotifyFetchJson(url, token)
-
-    if (data?.tracks?.items) {
-      results.push(...data.tracks.items)
+  searches.forEach((result) => {
+    if (result.status === 'fulfilled' && result.value?.tracks?.items) {
+      results.push(...result.value.tracks.items)
+      return
     }
-  }
+
+    if (result.status === 'rejected') {
+      console.error('Spotify query failed:', result.reason.message)
+    }
+  })
 
   const unique = new Map()
 
@@ -145,7 +204,26 @@ async function getPersonalizedTracks(token, queries) {
     }
   })
 
-  return [...unique.values()].slice(0, 50)
+  return [...unique.values()].slice(0, 24)
+}
+
+async function searchTracksWithFallback(token, query, taste) {
+  const personalizedQueries = buildSearchQueries(query, taste)
+  const personalizedTracks = await getPersonalizedTracks(token, personalizedQueries)
+
+  if (personalizedTracks.length > 0) {
+    return personalizedTracks
+  }
+
+  const fallbackQueries = buildFallbackQueries(query).filter(
+    (candidate) => !personalizedQueries.includes(candidate),
+  )
+
+  if (fallbackQueries.length === 0) {
+    return personalizedTracks
+  }
+
+  return getPersonalizedTracks(token, fallbackQueries)
 }
 
 /* -----------------------------
@@ -160,17 +238,24 @@ router.get('/search', async (req, res) => {
       return res.status(401).json({ error: 'Not authenticated with Spotify' })
     }
 
-    const query = req.query.q
+    const query = String(req.query.q || '').trim()
 
     if (!query) {
       return res.status(400).json({ error: 'Query required' })
     }
 
+    const cachedTracks = getCachedSearchResults(req, query)
+
+    if (cachedTracks) {
+      return res.json({ tracks: cachedTracks, cached: true })
+    }
+
     const taste = await getCachedTasteProfile(req, token)
+    const tracks = await searchTracksWithFallback(token, query, taste)
 
-    const queries = buildSearchQueries(query, taste)
-
-    const tracks = await getPersonalizedTracks(token, queries)
+    if (tracks.length > 0) {
+      setCachedSearchResults(req, query, tracks)
+    }
 
     res.json({ tracks })
   } catch (error) {
