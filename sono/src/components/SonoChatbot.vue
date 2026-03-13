@@ -180,6 +180,8 @@ const loading = ref(false)
 const tracks = ref([])
 const header = ref({ mood: '', genres: [] })
 const detectedMood = ref('') // Track the detected mood for the button
+const detectedSearchTerm = ref('')
+const detectedSearchQueries = ref([])
 const auth = ref({ connected: false, name: '' })
 const messagesContainer = ref(null)
 const quickMoods = ['Happy', 'Sad', 'Chill', 'Angry', 'Focus']
@@ -291,6 +293,14 @@ const sendMessage = async (textOverride = null) => {
               genres: payload.genres || [],
             }
             detectedMood.value = payload.mood || ''
+            detectedSearchTerm.value =
+              payload.queryLabel ||
+              (Array.isArray(payload.searchQueries) ? payload.searchQueries[0] : '') ||
+              payload.mood ||
+              ''
+            detectedSearchQueries.value = Array.isArray(payload.searchQueries)
+              ? payload.searchQueries.filter(Boolean)
+              : []
 
             const normalizedTracks = (payload.tracks || [])
               .filter((t) => t)
@@ -312,10 +322,18 @@ const sendMessage = async (textOverride = null) => {
 
             tracks.value = normalizedTracks
 
-            if (tracks.value.length > 0) {
-              const searchLabel = payload.queryLabel || payload.mood || ''
-              setMoodRecommendations(tracks.value, payload.mood, payload.genres || [], searchLabel)
-            }
+            const searchLabel =
+              payload.queryLabel ||
+              (Array.isArray(payload.searchQueries) ? payload.searchQueries[0] : '') ||
+              payload.mood ||
+              ''
+            setMoodRecommendations(
+              tracks.value,
+              payload.mood,
+              payload.genres || [],
+              searchLabel,
+              payload.searchQueries || [],
+            )
           } catch (e) {
             console.error('Failed to parse payload:', e)
           }
@@ -356,20 +374,33 @@ const sendMessage = async (textOverride = null) => {
 
 const viewMoreRecommendations = () => {
   // Save tracks and mood data to shared state
-  setMoodRecommendations(tracks.value, header.value.mood, header.value.genres)
+  setMoodRecommendations(
+    tracks.value,
+    header.value.mood,
+    header.value.genres,
+    detectedSearchTerm.value || header.value.mood,
+    detectedSearchQueries.value,
+  )
   // Navigate to discover page
   router.push('/discover')
 }
 
 function goToDiscoverWithMood() {
-  if (detectedMood.value && tracks.value.length > 0) {
+  if (detectedMood.value) {
+    const searchTerm = detectedSearchTerm.value || detectedMood.value
     // Save tracks and mood data to shared state
-    setMoodRecommendations(tracks.value, detectedMood.value, header.value.genres)
-    // Navigate to discover page with mood as query parameter
-    router.push({ path: '/discover', query: { mood: detectedMood.value, autoSearch: 'true' } })
-  } else if (detectedMood.value) {
-    // Navigate with mood even if no tracks yet
-    router.push({ path: '/discover', query: { mood: detectedMood.value, autoSearch: 'true' } })
+    setMoodRecommendations(
+      tracks.value,
+      detectedMood.value,
+      header.value.genres,
+      searchTerm,
+      detectedSearchQueries.value,
+    )
+    // Navigate to discover page with mood and AI search query
+    router.push({
+      path: '/discover',
+      query: { mood: detectedMood.value, q: searchTerm, autoSearch: 'true', source: 'ai' },
+    })
   } else {
     router.push('/discover')
   }

@@ -9,13 +9,91 @@ const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID
 const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET
 
 const SPOTIFY_REDIRECT_URI =
-  process.env.VITE_SPOTIFY_REDIRECT_URI || 'http://127.0.0.1:10000/api/auth/callback'
+  process.env.SPOTIFY_REDIRECT_URI || 'http://127.0.0.1:10000/api/auth/callback'
 
 const APP_ORIGIN = process.env.APP_ORIGIN || 'http://127.0.0.1:5173'
 
 const DEFAULT_SCOPES =
-  process.env.VITE_SPOTIFY_SCOPES ||
+  process.env.SPOTIFY_SCOPES ||
   'user-read-email user-read-private user-top-read user-read-recently-played user-library-read'
+
+const MOOD_FAMILY_PROFILES = {
+  sad: {
+    matcher: /(sad|down|depressed|blue|heartbreak|heartbroken|grief|cry|lonely|melanch|hurt)/i,
+    blockedQueryTerms:
+      /(party|hype|club|rage|banger|drill|dancefloor|festival|upbeat|turn\s?up|lit)/i,
+    blockedGenres: /(edm|dance|house|techno|drill|hardstyle|dubstep|hyperpop)/i,
+    preferredQueries: [
+      'sad melancholic indie r&b',
+      'emotional r&b slow vocals',
+      'acoustic heartbreak indie folk',
+      'melancholy alt r&b night',
+      'soft sad soul ballad',
+    ],
+    preferredGenreHints: ['r&b', 'soul', 'indie', 'indie folk', 'acoustic'],
+    familiarityCap: 0.2,
+    avoidTasteBias: true,
+    strictFilter: true,
+    titlePenalty: /(party|hype|club|rage|drill|dance|remix|nightcore|sped up)/i,
+    titleBonus: /(acoustic|piano|rain|blue|slow|sad|melanch|heart)/i,
+  },
+  calm: {
+    matcher: /(calm|relax|peace|gentle|soothing|quiet|sleep|decompress|wind down)/i,
+    blockedQueryTerms: /(hype|rage|party|drill|hard|aggressive|intense)/i,
+    blockedGenres: /(drill|hardstyle|metalcore|dubstep)/i,
+    preferredQueries: [
+      'calm ambient soft vocals',
+      'gentle acoustic chill',
+      'peaceful indie downtempo',
+    ],
+    preferredGenreHints: ['ambient', 'acoustic', 'indie', 'lo-fi', 'soft pop'],
+    familiarityCap: 0.25,
+    avoidTasteBias: false,
+    titlePenalty: /(rage|hard|loud|club|party|drill)/i,
+    titleBonus: /(ambient|chill|calm|soft|acoustic|sleep)/i,
+  },
+  focus: {
+    matcher: /(focus|study|work mode|productive|locked in|deep work)/i,
+    blockedQueryTerms: /(party|hype|club|drill|rage|chaotic)/i,
+    blockedGenres: /(drill|rage|hardstyle|hyperpop)/i,
+    preferredQueries: [
+      'focus instrumental electronic',
+      'study beats no distractions',
+      'deep work lo-fi instrumental',
+    ],
+    preferredGenreHints: ['instrumental', 'lo-fi', 'ambient', 'electronic'],
+    familiarityCap: 0.22,
+    avoidTasteBias: false,
+    titlePenalty: /(party|club|rage|drill|remix)/i,
+    titleBonus: /(instrumental|focus|study|ambient|lofi|beats)/i,
+  },
+  happy: {
+    matcher: /(happy|joy|sunny|cheerful|smile|uplift|good mood)/i,
+    blockedQueryTerms: /(sad|heartbreak|depress|grief|cry)/i,
+    blockedGenres: /(funeral|doom)/i,
+    preferredQueries: [
+      'upbeat pop feel good',
+      'happy melodic indie pop',
+      'positive energy dance pop',
+    ],
+    preferredGenreHints: ['pop', 'dance pop', 'indie pop', 'funk'],
+    familiarityCap: 0.3,
+    avoidTasteBias: false,
+    titlePenalty: /(sad|cry|heartbreak|alone)/i,
+    titleBonus: /(happy|sunshine|dance|good vibes|bright)/i,
+  },
+  energetic: {
+    matcher: /(energetic|hype|workout|gym|pump|adrenaline|high energy)/i,
+    blockedQueryTerms: /(sleep|calm|sad ballad|depress|slow)/i,
+    blockedGenres: /(ambient|sleep|meditation)/i,
+    preferredQueries: ['high energy workout', 'hype trap workout', 'driving electronic energy'],
+    preferredGenreHints: ['hip hop', 'electronic', 'pop', 'rock'],
+    familiarityCap: 0.3,
+    avoidTasteBias: false,
+    titlePenalty: /(sleep|calm|acoustic lullaby)/i,
+    titleBonus: /(energy|hype|power|workout|run)/i,
+  },
+}
 
 let openai = null
 
@@ -388,7 +466,7 @@ async function interpretSearchIntent({ rawQuery, genres, taste }) {
 
     const parsed = parseStructuredPayload(response.choices?.[0]?.message?.content)
 
-    return {
+    const intent = {
       mood: normalizePhrase(parsed?.mood || rawQuery, 60),
       genreHints: unique(
         (parsed?.genreHints || []).map((genre) => normalizePhrase(genre, 30)),
@@ -398,9 +476,15 @@ async function interpretSearchIntent({ rawQuery, genres, taste }) {
       ).slice(0, 10),
       familiarRatio: clampNumber(parsed?.familiarRatio, 0.15, 0.35, 0.22),
     }
+
+    return applyMoodGuardrails(intent, rawQuery, normalizedGenres)
   } catch (error) {
     console.error('Failed to interpret search intent with OpenAI:', error)
-    return fallbackInterpretSearchIntent(rawQuery, normalizedGenres, taste)
+    return applyMoodGuardrails(
+      fallbackInterpretSearchIntent(rawQuery, normalizedGenres, taste),
+      rawQuery,
+      normalizedGenres,
+    )
   }
 }
 
@@ -428,6 +512,46 @@ function fallbackInterpretSearchIntent(rawQuery, genres, taste) {
   }
 }
 
+function applyMoodGuardrails(intent, rawQuery, explicitGenres) {
+  const safeIntent = {
+    mood: normalizePhrase(intent?.mood || rawQuery, 60),
+    genreHints: unique(intent?.genreHints || []),
+    searchQueries: unique(intent?.searchQueries || []),
+    familiarRatio: clampNumber(intent?.familiarRatio, 0.15, 0.35, 0.22),
+  }
+
+  const profile = getMoodFamilyProfile(safeIntent.mood, rawQuery)
+  if (!profile) return safeIntent
+
+  const filteredQueries = safeIntent.searchQueries.filter(
+    (query) => !(profile.blockedQueryTerms && profile.blockedQueryTerms.test(query)),
+  )
+  safeIntent.searchQueries = unique([...(profile.preferredQueries || []), ...filteredQueries]).slice(
+    0,
+    10,
+  )
+
+  const genreHints = unique([...(safeIntent.genreHints || []), ...(explicitGenres || [])])
+    .map((genre) => genre.toLowerCase())
+    .filter((genre) => !(profile.blockedGenres && profile.blockedGenres.test(genre)))
+
+  safeIntent.genreHints = unique([...(profile.preferredGenreHints || []), ...genreHints]).slice(0, 6)
+
+  if (typeof profile.familiarityCap === 'number') {
+    safeIntent.familiarRatio = Math.min(safeIntent.familiarRatio, profile.familiarityCap)
+  }
+
+  return safeIntent
+}
+
+function getMoodFamilyProfile(mood, rawQuery) {
+  const text = `${String(mood || '')} ${String(rawQuery || '')}`
+  for (const profile of Object.values(MOOD_FAMILY_PROFILES)) {
+    if (profile.matcher.test(text)) return profile
+  }
+  return null
+}
+
 function inferMoodLabel(lower) {
   if (/(sad|cry|heartbroken|breakup|grief|hurt|alone)/.test(lower)) return 'bittersweet late-night'
   if (/(calm|soothing|relax|rest|peace|gentle|tired|burnout|long day|after work)/.test(lower)) {
@@ -446,6 +570,7 @@ function inferMoodLabel(lower) {
 // -----------------------------
 async function getPersonalizedTracks({ token, rawQuery, genres, taste, intent, limit }) {
   const searchQueries = buildSearchQueries(rawQuery, genres, taste, intent)
+  const profile = getMoodFamilyProfile(intent?.mood, rawQuery)
 
   const searchRequests = []
   for (const query of searchQueries) {
@@ -488,7 +613,15 @@ async function getPersonalizedTracks({ token, rawQuery, genres, taste, intent, l
 
   const artistDetails = await fetchArtistsById(token, artistIds)
 
-  const scored = candidates
+  const filteredCandidates = profile?.strictFilter
+    ? candidates.filter((track) => trackMatchesProfile(track, profile, artistDetails))
+    : candidates
+
+  const pool = filteredCandidates.length >= Math.max(12, Math.floor(limit * 1.6))
+    ? filteredCandidates
+    : candidates
+
+  const scored = pool
     .map((track) => {
       const listenedBefore = taste.listenedTrackIds.has(track.id)
       const primaryArtistId = track.artists?.[0]?.id || null
@@ -545,6 +678,7 @@ async function getPersonalizedTracks({ token, rawQuery, genres, taste, intent, l
 function buildSearchQueries(rawQuery, genres, taste, intent) {
   const explicitGenres = unique(genres.map((genre) => genre.toLowerCase()))
   const mood = normalizePhrase(intent.mood || rawQuery, 60)
+  const profile = getMoodFamilyProfile(mood, rawQuery)
   const searchQueries = new Set()
 
   for (const query of intent.searchQueries || []) {
@@ -559,15 +693,17 @@ function buildSearchQueries(rawQuery, genres, taste, intent) {
     searchQueries.add(`${mood} ${genre}`.trim())
   }
 
-  const tasteGenres = (taste.preferredGenres || []).slice(0, 4)
-  for (const genre of tasteGenres) {
-    searchQueries.add(`${mood} ${genre}`.trim())
-  }
+  if (!profile?.avoidTasteBias) {
+    const tasteGenres = (taste.preferredGenres || []).slice(0, 4)
+    for (const genre of tasteGenres) {
+      searchQueries.add(`${mood} ${genre}`.trim())
+    }
 
-  for (const artist of (taste.preferredArtistNames || []).slice(0, 4)) {
-    searchQueries.add(`artist:"${artist}" ${mood}`)
-    for (const genre of (intent.genreHints || []).slice(0, 2)) {
-      searchQueries.add(`artist:"${artist}" ${genre}`)
+    for (const artist of (taste.preferredArtistNames || []).slice(0, 4)) {
+      searchQueries.add(`artist:"${artist}" ${mood}`)
+      for (const genre of (intent.genreHints || []).slice(0, 2)) {
+        searchQueries.add(`artist:"${artist}" ${genre}`)
+      }
     }
   }
 
@@ -594,16 +730,20 @@ function scoreTrack(track, rawQuery, genres, taste, intent, artistDetails) {
     ...(intent.genreHints || []).map((genre) => genre.toLowerCase()),
   ])
   const preferredGenres = new Set((taste.preferredGenres || []).map((genre) => genre.toLowerCase()))
+  const profile = getMoodFamilyProfile(lowerMood, lowerRaw)
   const listenedBefore = taste.listenedTrackIds.has(track.id)
   const savedBefore = taste.savedTrackIds.has(track.id)
+  const artistWeightFactor = profile?.avoidTasteBias ? 0.2 : 1
+  const topArtistFactor = profile?.avoidTasteBias ? 0.25 : 1
+  const preferredGenreFactor = profile?.avoidTasteBias ? 0.25 : 1
 
   score += Math.min(track.popularity || 0, 80) * 0.14
 
   for (const artist of track.artists || []) {
-    score += taste.artistWeights.get(artist.id) || 0
+    score += (taste.artistWeights.get(artist.id) || 0) * artistWeightFactor
 
     if (taste.topArtistIds.has(artist.id)) {
-      score += 22
+      score += 22 * topArtistFactor
     }
 
     const artistGenres = (artistDetails.get(artist.id)?.genres || []).map((genre) =>
@@ -612,8 +752,9 @@ function scoreTrack(track, rawQuery, genres, taste, intent, artistDetails) {
 
     for (const genre of artistGenres) {
       if (inputGenres.has(genre)) score += 14
-      if (preferredGenres.has(genre)) score += 5
+      if (preferredGenres.has(genre)) score += 5 * preferredGenreFactor
       if (lowerMood.includes(genre)) score += 8
+      if (profile?.blockedGenres && profile.blockedGenres.test(genre)) score -= 20
     }
   }
 
@@ -625,18 +766,12 @@ function scoreTrack(track, rawQuery, genres, taste, intent, artistDetails) {
     score -= 12
   }
 
-  if (
-    lowerMood.includes('sad') ||
-    lowerMood.includes('bittersweet') ||
-    lowerMood.includes('melanch')
-  ) {
-    if (
-      lowerTitle.includes('acoustic') ||
-      lowerTitle.includes('rain') ||
-      lowerTitle.includes('blue')
-    ) {
-      score += 5
-    }
+  if (profile?.titlePenalty && profile.titlePenalty.test(lowerTitle)) {
+    score -= 32
+  }
+
+  if (profile?.titleBonus && profile.titleBonus.test(lowerTitle)) {
+    score += 8
   }
 
   if (lowerMood.includes('focus') || lowerMood.includes('study') || lowerMood.includes('calm')) {
@@ -654,9 +789,29 @@ function scoreTrack(track, rawQuery, genres, taste, intent, artistDetails) {
   }
 
   if (savedBefore) score += 8
-  if (listenedBefore) score += 5
+  if (listenedBefore) score += profile?.avoidTasteBias ? 1 : 5
 
   return score
+}
+
+function trackMatchesProfile(track, profile, artistDetails) {
+  if (!profile) return true
+
+  const title = String(track?.name || '').toLowerCase()
+  if (profile.titlePenalty && profile.titlePenalty.test(title)) {
+    return false
+  }
+
+  if (!profile.blockedGenres) {
+    return true
+  }
+
+  const artistGenres = (track?.artists || [])
+    .flatMap((artist) => artistDetails.get(artist.id)?.genres || [])
+    .map((genre) => String(genre || '').toLowerCase())
+
+  const hasBlockedGenre = artistGenres.some((genre) => profile.blockedGenres.test(genre))
+  return !hasBlockedGenre
 }
 
 // -----------------------------

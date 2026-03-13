@@ -13,7 +13,7 @@ dotenv.config({ path: `${__dirname}/.env` })
 // Debug: log key env values used by auth flow (non-secret)
 console.log('Loaded env:', {
   SPOTIFY_CLIENT_ID: process.env.SPOTIFY_CLIENT_ID ? 'SET' : 'MISSING',
-  VITE_SPOTIFY_REDIRECT_URI: process.env.VITE_SPOTIFY_REDIRECT_URI || null,
+  SPOTIFY_REDIRECT_URI: process.env.SPOTIFY_REDIRECT_URI || null,
   APP_ORIGIN: process.env.APP_ORIGIN || null,
   PORT: process.env.PORT || null,
 })
@@ -28,7 +28,13 @@ const app = express()
 // Middleware
 app.use(
   cors({
-    origin: ['http://localhost:5173', 'http://127.0.0.1:5173', 'https://hanniekwak.com'],
+    origin: [
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:5174',
+      process.env.APP_ORIGIN,
+      'https://hanniekwak.com',
+    ].filter(Boolean),
     credentials: true,
   }),
 )
@@ -74,7 +80,7 @@ app.get('/debug-env', (req, res) => {
   res.json({
     SPOTIFY_CLIENT_ID: !!process.env.SPOTIFY_CLIENT_ID,   // true/false only
     SPOTIFY_CLIENT_SECRET: !!process.env.SPOTIFY_CLIENT_SECRET, // true/false
-    VITE_SPOTIFY_REDIRECT_URI: process.env.VITE_SPOTIFY_REDIRECT_URI || null,
+    SPOTIFY_REDIRECT_URI: process.env.SPOTIFY_REDIRECT_URI || null,
     APP_ORIGIN: process.env.APP_ORIGIN || null,
     PORT: process.env.PORT || null,
   })

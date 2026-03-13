@@ -23,6 +23,22 @@
           @keyup.enter="searchSpotify"
         />
         <button @click="searchSpotify">Search</button>
+        <div class="mode-toggle">
+          <button
+            :class="['mode-btn', { active: rankingMode === 'mood' }]"
+            @click="setRankingMode('mood')"
+            type="button"
+          >
+            Mood Focus
+          </button>
+          <button
+            :class="['mode-btn', { active: rankingMode === 'discovery' }]"
+            @click="setRankingMode('discovery')"
+            type="button"
+          >
+            Discovery Mix
+          </button>
+        </div>
         <button class="refresh-btn" @click="showNextBatch" :disabled="!tracks.length">
           Refresh
         </button>
@@ -56,7 +72,7 @@ import { useRoute } from 'vue-router'
 import { useMoodRecommendations } from '@/composables/useMoodRecommendations'
 
 
-const { moodRecommendations, currentMood, currentSearchTerm } = useMoodRecommendations()
+const { moodRecommendations, currentMood, currentGenres, currentSearchTerm, currentSearchQueries } = useMoodRecommendations()
 const route = useRoute()
 
 
@@ -69,6 +85,8 @@ const profile = ref(null)
 const searchTerm = ref('')
 const tracks = ref([])
 const recommendations = ref([])
+const rankingMode = ref('mood')
+const lastAiQueries = ref([])
 let batchIndex = 0
 function normalizeTracks(rawTracks) {
   return (rawTracks || [])
@@ -131,16 +149,19 @@ function getMoodGenre(mood) {
   return moodToGenreMap[mood] || mood
 }
 
-async function searchSpotify() {
+async function searchSpotify(options = {}) {
+  const { skipMoodMapping = false } = options
+
   if (!connected.value) return
   if (!searchTerm.value) return
 
-  const lowerSearchTerm = searchTerm.value.toLowerCase().trim()
-  const genreQuery = getMoodGenre(lowerSearchTerm)
+  const rawQuery = String(searchTerm.value).trim()
+  const lowerSearchTerm = rawQuery.toLowerCase()
+  const finalQuery = skipMoodMapping ? rawQuery : getMoodGenre(lowerSearchTerm)
 
   try {
     const res = await fetch(
-      `${API_URL}/api/spotify/search?q=${encodeURIComponent(genreQuery)}`,
+      `${API_URL}/api/spotify/search?q=${encodeURIComponent(finalQuery)}`,
       {
         credentials: 'include',
       }
@@ -154,6 +175,135 @@ updateRecommendations()
   } catch (err) {
     console.error('Error searching Spotify:', err)
   }
+}
+
+function dedupeAndRankTracks(trackGroups, mode = 'mood') {
+  const scored = new Map()
+
+  trackGroups.forEach((tracksList, queryIndex) => {
+    const queryWeight =
+      mode === 'mood' ? Math.max(1, 7 - queryIndex) * 120 : Math.max(1, 6 - queryIndex) * 70
+
+    ;(tracksList || []).forEach((track, trackIndex) => {
+      const rankWeight = Math.max(1, 50 - trackIndex)
+      const diversityBonus = mode === 'discovery' ? queryIndex * 18 : 0
+      const score = queryWeight + rankWeight + diversityBonus
+      const existing = scored.get(track.track_id)
+
+      if (!existing) {
+        scored.set(track.track_id, { ...track, score, hits: 1 })
+      } else {
+        scored.set(track.track_id, {
+          ...existing,
+          score: existing.score + score,
+          hits: existing.hits + 1,
+        })
+      }
+    })
+  })
+
+  return Array.from(scored.values())
+    .map((track) => ({
+      ...track,
+      finalScore: track.score + (mode === 'mood' ? track.hits * 24 : track.hits * 10),
+    }))
+    .sort((a, b) => b.finalScore - a.finalScore)
+    .map(({ score, hits, finalScore, ...track }) => track)
+}
+
+async function searchSpotifyByQueries(queries = [], mood = '') {
+  if (!connected.value) return
+
+  const cleanedQueries = (queries || []).map((query) => String(query || '').trim()).filter(Boolean)
+  if (!cleanedQueries.length) return
+
+  lastAiQueries.value = cleanedQueries.slice(0, 5)
+
+  try {
+    const requests = cleanedQueries.slice(0, 5).map((query) =>
+      fetch(`${API_URL}/api/spotify/search?q=${encodeURIComponent(query)}`, {
+        credentials: 'include',
+      })
+        .then(async (response) => {
+          if (!response.ok) return []
+          const data = await response.json()
+          return normalizeTracks(data.tracks)
+        })
+        .catch(() => []),
+    )
+
+    const queryResults = await Promise.all(requests)
+    const merged = dedupeAndRankTracks(queryResults, rankingMode.value)
+
+    if (merged.length) {
+      tracks.value = merged
+      batchIndex = 0
+      updateRecommendations()
+
+      if (!searchTerm.value && mood) {
+        searchTerm.value = mood
+      }
+    }
+  } catch (err) {
+    console.error('Error searching Spotify with AI queries:', err)
+  }
+}
+
+function uniqueQueries(values = []) {
+  return Array.from(new Set(values.map((value) => String(value || '').trim()).filter(Boolean)))
+}
+
+function buildModeQueries({ mode, mood, genres, searchTermValue, aiQueries }) {
+  const moodText = String(mood || '').trim()
+  const termText = String(searchTermValue || '').trim()
+  const genreList = Array.isArray(genres) ? genres.filter(Boolean) : []
+  const aiList = Array.isArray(aiQueries) ? aiQueries.filter(Boolean) : []
+
+  const base = uniqueQueries([termText, moodText, ...aiList])
+
+  if (mode === 'mood') {
+    return uniqueQueries([
+      ...base,
+      moodText && `${moodText} ${genreList.join(' ')}`,
+      moodText && `${moodText} emotional ${genreList.join(' ')}`,
+      moodText && `moody ${moodText} ${termText}`,
+    ]).slice(0, 6)
+  }
+
+  return uniqueQueries([
+    ...base,
+    ...genreList.map((genre) => `${genre} new releases`),
+    ...genreList.map((genre) => `${genre} hidden gems`),
+    moodText && `${moodText} but different vibe ${genreList.join(' ')}`,
+    termText && `${termText} fresh discovery`,
+  ]).slice(0, 8)
+}
+
+async function rerunByMode() {
+  if (!connected.value) return
+
+  const queries = buildModeQueries({
+    mode: rankingMode.value,
+    mood: currentMood.value,
+    genres: currentGenres.value,
+    searchTermValue: searchTerm.value || currentSearchTerm.value,
+    aiQueries: lastAiQueries.value.length ? lastAiQueries.value : currentSearchQueries.value,
+  })
+
+  if (queries.length) {
+    await searchSpotifyByQueries(queries, currentMood.value)
+    return
+  }
+
+  if (searchTerm.value) {
+    await searchSpotify({ skipMoodMapping: false })
+  }
+}
+
+async function setRankingMode(mode) {
+  if (rankingMode.value === mode) return
+  rankingMode.value = mode
+  await rerunByMode()
 }
 
 function showNextBatch() {
@@ -181,9 +331,31 @@ onMounted(async () => {
     } else if (currentMood.value) {
       searchTerm.value = currentMood.value
     }
-  } else if (route.query.mood && route.query.autoSearch === 'true') {
-    const mood = String(route.query.mood)
-    searchTerm.value = mood // show AI term as-is
+  }
+
+  const autoSearchRequested = route.query.autoSearch === 'true'
+  const routeQuery = String(route.query.q || '').trim()
+  const routeMood = String(route.query.mood || '').trim()
+
+  const aiQueries = [...(Array.isArray(currentSearchQueries.value) ? currentSearchQueries.value : [])]
+  if (routeQuery) aiQueries.unshift(routeQuery)
+  if (routeMood && currentGenres.value?.length) {
+    aiQueries.push(`${routeMood} ${currentGenres.value.join(' ')}`)
+  }
+  const dedupedAiQueries = uniqueQueries(aiQueries)
+  lastAiQueries.value = dedupedAiQueries
+
+  if (connected.value && dedupedAiQueries.length) {
+    searchTerm.value = currentSearchTerm.value || routeQuery || routeMood
+    await rerunByMode()
+  } else if (connected.value && currentSearchTerm.value) {
+    searchTerm.value = currentSearchTerm.value
+    await searchSpotify({ skipMoodMapping: true })
+  } else if (connected.value && autoSearchRequested && routeQuery) {
+    searchTerm.value = routeQuery
+    await searchSpotify({ skipMoodMapping: true })
+  } else if (connected.value && autoSearchRequested && routeMood) {
+    searchTerm.value = routeMood
     await searchSpotify()
   }
 })
@@ -380,6 +552,29 @@ onMounted(async () => {
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
 }
 
+.mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.mode-btn {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  border-radius: 999px;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+}
+
+.mode-btn.active {
+  background: linear-gradient(120deg, #7f5af0, #a78bfa);
+  border-color: transparent;
+}
+
 .refresh-btn:disabled {
   opacity: 0.5;
   cursor: default;
@@ -497,6 +692,15 @@ iframe {
     flex-direction: column;
     align-items: stretch;
     border-radius: 1.4rem;
+  }
+
+  .mode-toggle {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .mode-btn {
+    flex: 1;
   }
 
   .search-bar button {

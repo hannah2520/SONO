@@ -6,13 +6,15 @@ const moodRecommendations = ref([])
 const currentMood = ref('')
 const currentGenres = ref([])
 const currentSearchTerm = ref('') // 👈 NEW
+const currentSearchQueries = ref([])
 
 export function useMoodRecommendations() {
-  const setMoodRecommendations = (tracks, mood, genres, searchTerm) => {
+  const setMoodRecommendations = (tracks, mood, genres, searchTerm, searchQueries) => {
     moodRecommendations.value = tracks || []
     currentMood.value = mood || ''
     currentGenres.value = genres || []
     currentSearchTerm.value = searchTerm || mood || ''
+    currentSearchQueries.value = Array.isArray(searchQueries) ? searchQueries.filter(Boolean) : []
   }
 
   const clearMoodRecommendations = () => {
@@ -20,6 +22,7 @@ export function useMoodRecommendations() {
     currentMood.value = ''
     currentGenres.value = []
     currentSearchTerm.value = ''
+    currentSearchQueries.value = []
   }
 
   return {
@@ -27,6 +30,7 @@ export function useMoodRecommendations() {
     currentMood,
     currentGenres,
     currentSearchTerm,
+    currentSearchQueries,
     setMoodRecommendations,
     clearMoodRecommendations,
   }
