@@ -103,6 +103,29 @@ const recommendations = ref([])
 const rankingMode = ref('mood')
 const lastAiQueries = ref([])
 let batchIndex = 0
+function buildTrackKey(track) {
+  const title = String(track?.title || track?.name || '')
+    .trim()
+    .toLowerCase()
+  const artist = String(track?.artist || track?.artists || '')
+    .trim()
+    .toLowerCase()
+
+  if (title && artist) {
+    return `${title}::${artist}`
+  }
+
+  return track?.track_id || track?.id || ''
+}
+
+function normalizeArtistName(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^\w\s,&/-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 function normalizeTracks(rawTracks) {
   return (rawTracks || [])
     .filter((t) => t)
@@ -120,7 +143,21 @@ function normalizeTracks(rawTracks) {
 }
 
 function applyTrackResults(rawTracks) {
-  tracks.value = normalizeTracks(rawTracks)
+  const uniqueTracks = []
+  const seen = new Set()
+
+  normalizeTracks(rawTracks).forEach((track) => {
+    const key = buildTrackKey(track)
+
+    if (!key || seen.has(key)) {
+      return
+    }
+
+    seen.add(key)
+    uniqueTracks.push(track)
+  })
+
+  tracks.value = uniqueTracks
   batchIndex = 0
   updateRecommendations()
 }
@@ -352,16 +389,47 @@ function showNextBatch() {
 }
 
 function updateRecommendations() {
-  recommendations.value = tracks.value.slice(batchIndex, batchIndex + 3)
+  const pool = tracks.value.slice(batchIndex).concat(tracks.value.slice(0, batchIndex))
+  const nextBatch = []
+  const usedTrackKeys = new Set()
+  const usedArtists = new Set()
+
+  for (const track of pool) {
+    if (nextBatch.length >= 3) break
+
+    const trackKey = buildTrackKey(track)
+    const artistKey = normalizeArtistName(track.artist)
+
+    if (usedTrackKeys.has(trackKey) || usedArtists.has(artistKey)) {
+      continue
+    }
+
+    usedTrackKeys.add(trackKey)
+    usedArtists.add(artistKey)
+    nextBatch.push(track)
+  }
+
+  for (const track of pool) {
+    if (nextBatch.length >= 3) break
+
+    const trackKey = buildTrackKey(track)
+
+    if (usedTrackKeys.has(trackKey)) {
+      continue
+    }
+
+    usedTrackKeys.add(trackKey)
+    nextBatch.push(track)
+  }
+
+  recommendations.value = nextBatch
 }
 
 onMounted(async () => {
   await fetchStatus()
 
   if (moodRecommendations.value.length > 0) {
-    tracks.value = normalizeTracks(moodRecommendations.value)
-    batchIndex = 0
-    updateRecommendations()
+    applyTrackResults(moodRecommendations.value)
 
     // 🔁 hydrate search input with AI term if we have it
     if (currentSearchTerm.value) {

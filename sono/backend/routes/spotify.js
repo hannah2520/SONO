@@ -153,11 +153,14 @@ function buildSearchQueries(query, taste) {
     return [...queries]
   }
 
-  taste.artists.slice(0, 5).forEach((artist) => {
+  const artists = Array.isArray(taste.artists) ? taste.artists : []
+  const tracks = Array.isArray(taste.tracks) ? taste.tracks : []
+
+  artists.slice(0, 5).forEach((artist) => {
     queries.add(`${query} ${artist.name}`)
   })
 
-  taste.tracks.slice(0, 5).forEach((track) => {
+  tracks.slice(0, 5).forEach((track) => {
     if (track?.artists?.[0]?.name) {
       queries.add(`${query} ${track.artists[0].name}`)
     }
@@ -246,6 +249,15 @@ async function searchTracksWithFallback(token, query, taste) {
   return getPersonalizedTracks(token, fallbackQueries)
 }
 
+async function searchTracksSafely(token, query, taste) {
+  try {
+    return await searchTracksWithFallback(token, query, taste)
+  } catch (error) {
+    console.error('Spotify personalized search failed, retrying plain query:', error.message)
+    return getPersonalizedTracks(token, [query])
+  }
+}
+
 /* -----------------------------
    SEARCH ROUTE
 ----------------------------- */
@@ -278,7 +290,7 @@ router.get('/search', async (req, res) => {
       console.error('Spotify taste profile unavailable, falling back to plain search:', error.message)
     }
 
-    const tracks = await searchTracksWithFallback(token, query, taste)
+    const tracks = await searchTracksSafely(token, query, taste)
 
     if (tracks.length > 0) {
       setCachedSearchResults(req, query, tracks)
@@ -287,7 +299,11 @@ router.get('/search', async (req, res) => {
     res.json({ tracks })
   } catch (error) {
     console.error('Error during Spotify search:', error.message)
-    res.status(500).json({ error: error.message })
+    res.json({
+      tracks: [],
+      degraded: true,
+      error: error.message,
+    })
   }
 })
 
