@@ -6,6 +6,11 @@
         <h1 class="section-title">RECOMMENDED FOR YOU</h1>
       </div>
 
+      <div v-if="loading" class="status-card" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        <p>Checking your Spotify connection...</p>
+      </div>
+
       <!-- Login prompt if not authenticated -->
       <div v-if="!loading && !connected" class="login-prompt">
         <button @click="connectSpotify">
@@ -21,9 +26,12 @@
           v-model="searchTerm"
           placeholder="Search Spotify..."
           @keyup.enter="searchSpotify"
+          :disabled="searchLoading"
         />
-        <button @click="searchSpotify">Search</button>
-        <div class="mode-toggle">
+        <button @click="searchSpotify" :disabled="searchLoading">
+          {{ searchLoading ? 'Loading...' : 'Search' }}
+        </button>
+        <!-- <div class="mode-toggle">
           <button
             :class="['mode-btn', { active: rankingMode === 'mood' }]"
             @click="setRankingMode('mood')"
@@ -38,10 +46,15 @@
           >
             Discovery Mix
           </button>
-        </div>
-        <button class="refresh-btn" @click="showNextBatch" :disabled="!tracks.length">
+        </div> -->
+        <button class="refresh-btn" @click="showNextBatch" :disabled="searchLoading || !tracks.length">
           Refresh
         </button>
+      </div>
+
+      <div v-if="connected && searchLoading" class="status-card status-card-search" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        <p>{{ loadingMessage }}</p>
       </div>
 
       <!-- Recommendations Grid -->
@@ -79,6 +92,8 @@ const route = useRoute()
 const API_URL = import.meta.env.VITE_API_URL
 
 const loading = ref(true)
+const searchLoading = ref(false)
+const loadingMessage = ref('Finding recommendations...')
 const connected = ref(false)
 const profile = ref(null)
 
@@ -152,7 +167,7 @@ function getMoodGenre(mood) {
 async function searchSpotify(options = {}) {
   const { skipMoodMapping = false } = options
 
-  if (!connected.value) return
+  if (!connected.value || searchLoading.value) return
   if (!searchTerm.value) return
 
   const rawQuery = String(searchTerm.value).trim()
@@ -160,6 +175,8 @@ async function searchSpotify(options = {}) {
   const finalQuery = skipMoodMapping ? rawQuery : getMoodGenre(lowerSearchTerm)
 
   try {
+    searchLoading.value = true
+    loadingMessage.value = `Finding tracks for "${rawQuery}"...`
     const res = await fetch(
       `${API_URL}/api/spotify/search?q=${encodeURIComponent(finalQuery)}`,
       {
@@ -167,85 +184,87 @@ async function searchSpotify(options = {}) {
       }
     )
     if (!res.ok) throw new Error('Spotify search failed')
-const data = await res.json()
-tracks.value = normalizeTracks(data.tracks)
-batchIndex = 0
-updateRecommendations()
-
+    const data = await res.json()
+    tracks.value = normalizeTracks(data.tracks)
+    batchIndex = 0
+    updateRecommendations()
   } catch (err) {
     console.error('Error searching Spotify:', err)
+  } finally {
+    searchLoading.value = false
   }
 }
 
-function dedupeAndRankTracks(trackGroups, mode = 'mood') {
-  const scored = new Map()
+// function dedupeAndRankTracks(trackGroups, mode = 'mood') {
+//   const scored = new Map()
 
-  trackGroups.forEach((tracksList, queryIndex) => {
-    const queryWeight =
-      mode === 'mood' ? Math.max(1, 7 - queryIndex) * 120 : Math.max(1, 6 - queryIndex) * 70
+//   trackGroups.forEach((tracksList, queryIndex) => {
+//     const queryWeight =
+//       mode === 'mood' ? Math.max(1, 7 - queryIndex) * 120 : Math.max(1, 6 - queryIndex) * 70
 
-    ;(tracksList || []).forEach((track, trackIndex) => {
-      const rankWeight = Math.max(1, 50 - trackIndex)
-      const diversityBonus = mode === 'discovery' ? queryIndex * 18 : 0
-      const score = queryWeight + rankWeight + diversityBonus
-      const existing = scored.get(track.track_id)
+//     ;(tracksList || []).forEach((track, trackIndex) => {
+//       const rankWeight = Math.max(1, 50 - trackIndex)
+//       const diversityBonus = mode === 'discovery' ? queryIndex * 18 : 0
+//       const score = queryWeight + rankWeight + diversityBonus
+//       const existing = scored.get(track.track_id)
 
-      if (!existing) {
-        scored.set(track.track_id, { ...track, score, hits: 1 })
-      } else {
-        scored.set(track.track_id, {
-          ...existing,
-          score: existing.score + score,
-          hits: existing.hits + 1,
-        })
-      }
-    })
-  })
+//       if (!existing) {
+//         scored.set(track.track_id, { ...track, score, hits: 1 })
+//       } else {
+//         scored.set(track.track_id, {
+//           ...existing,
+//           score: existing.score + score,
+//           hits: existing.hits + 1,
+//         })
+//       }
+//     })
+//   })
 
-  return Array.from(scored.values())
-    .map((track) => ({
-      ...track,
-      finalScore: track.score + (mode === 'mood' ? track.hits * 24 : track.hits * 10),
-    }))
-    .sort((a, b) => b.finalScore - a.finalScore)
-    .map(({ score, hits, finalScore, ...track }) => track)
-}
+//   return Array.from(scored.values())
+//     .map((track) => ({
+//       ...track,
+//       finalScore: track.score + (mode === 'mood' ? track.hits * 24 : track.hits * 10),
+//     }))
+//     .sort((a, b) => b.finalScore - a.finalScore)
+//     .map(({ ...track }) => track) // score, hits, finalScore,
+// }
 
-async function searchSpotifyByQueries(queries = [], mood = '') {
-  if (!connected.value) return
+async function searchSpotifyByQueries(queries) {
+  if (!queries || queries.length === 0) return []
 
-  const cleanedQueries = (queries || []).map((query) => String(query || '').trim()).filter(Boolean)
-  if (!cleanedQueries.length) return
-
-  lastAiQueries.value = cleanedQueries.slice(0, 5)
+  const cleanedQueries = [...new Set(queries)].slice(0, 2)
+  searchLoading.value = true
+  loadingMessage.value = 'Blending recommendations for your mood...'
 
   try {
-    const requests = cleanedQueries.slice(0, 5).map((query) =>
-      fetch(`${API_URL}/api/spotify/search?q=${encodeURIComponent(query)}`, {
-        credentials: 'include',
-      })
-        .then(async (response) => {
-          if (!response.ok) return []
-          const data = await response.json()
-          return normalizeTracks(data.tracks)
-        })
-        .catch(() => []),
-    )
+    const results = []
 
-    const queryResults = await Promise.all(requests)
-    const merged = dedupeAndRankTracks(queryResults, rankingMode.value)
+    for (const query of cleanedQueries) {
+      const response = await fetch(
+        `${API_URL}/api/spotify/search?q=${encodeURIComponent(query)}`,
+        {
+          credentials: 'include',
+        }
+      )
 
-    if (merged.length) {
-      tracks.value = merged
-      batchIndex = 0
-      updateRecommendations()
+      const data = await response.json()
 
-      if (!searchTerm.value && mood) {
-        searchTerm.value = mood
+      if (data?.tracks) {
+        results.push(...data.tracks)
       }
     }
-  } catch (err) {
-    console.error('Error searching Spotify with AI queries:', err)
+
+    const unique = new Map()
+
+    results.forEach((track) => {
+      if (!unique.has(track.id)) {
+        unique.set(track.id, track)
+      }
+    })
+
+    return [...unique.values()]
+  } finally {
+    searchLoading.value = false
   }
 }
 
@@ -300,11 +319,11 @@ async function rerunByMode() {
   }
 }
 
-async function setRankingMode(mode) {
-  if (rankingMode.value === mode) return
-  rankingMode.value = mode
-  await rerunByMode()
-}
+// async function setRankingMode(mode) {
+//   if (rankingMode.value === mode) return
+//   rankingMode.value = mode
+//   await rerunByMode()
+// }
 
 function showNextBatch() {
   if (!tracks.value.length) return
@@ -671,6 +690,45 @@ onMounted(async () => {
 iframe {
   border-radius: 0.75rem;
   overflow: hidden;
+}
+
+.status-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  margin: 1.75rem 0;
+  padding: 2rem 1.5rem;
+  border-radius: 1.4rem;
+  background: rgba(8, 8, 18, 0.72);
+  backdrop-filter: blur(16px) saturate(135%);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
+  text-align: center;
+}
+
+.status-card-search {
+  margin-top: 0;
+}
+
+.status-card p {
+  margin: 0;
+  color: #f5f1ff;
+}
+
+.spinner {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #ffffff;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* responsive tweaks */
