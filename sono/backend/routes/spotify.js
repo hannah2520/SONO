@@ -19,6 +19,10 @@ async function spotifyFetchJson(url, token) {
     throw new Error(`Spotify rate limited. Retry after ${retryAfter || 'a few'} seconds.`)
   }
 
+  if (response.status === 504) {
+    throw new Error('Spotify service timeout.')
+  }
+
   if (!response.ok) {
     const body = await response.text()
     throw new Error(`Spotify request failed (${response.status}): ${body}`)
@@ -40,7 +44,7 @@ async function buildTasteProfile(token) {
     topTracksMedium,
     recentlyPlayed,
     savedTracks,
-  ] = await Promise.all([
+  ] = await Promise.allSettled([
     spotifyFetchJson('https://api.spotify.com/v1/me', token),
     spotifyFetchJson(
       'https://api.spotify.com/v1/me/top/artists?limit=20&time_range=short_term',
@@ -62,14 +66,26 @@ async function buildTasteProfile(token) {
     spotifyFetchJson('https://api.spotify.com/v1/me/tracks?limit=20', token),
   ])
 
+  const readItems = (result, mapper = (value) => value) => {
+    if (result.status === 'fulfilled') {
+      return mapper(result.value)
+    }
+
+    console.error('Spotify taste profile request failed:', result.reason?.message || result.reason)
+    return []
+  }
+
   return {
-    profile,
-    artists: [...topArtistsShort.items, ...topArtistsMedium.items],
+    profile: profile.status === 'fulfilled' ? profile.value : null,
+    artists: [
+      ...readItems(topArtistsShort, (value) => value.items || []),
+      ...readItems(topArtistsMedium, (value) => value.items || []),
+    ],
     tracks: [
-      ...topTracksShort.items,
-      ...topTracksMedium.items,
-      ...recentlyPlayed.items.map((i) => i.track),
-      ...savedTracks.items.map((i) => i.track),
+      ...readItems(topTracksShort, (value) => value.items || []),
+      ...readItems(topTracksMedium, (value) => value.items || []),
+      ...readItems(recentlyPlayed, (value) => (value.items || []).map((i) => i.track).filter(Boolean)),
+      ...readItems(savedTracks, (value) => (value.items || []).map((i) => i.track).filter(Boolean)),
     ],
   }
 }
@@ -132,6 +148,10 @@ function buildSearchQueries(query, taste) {
   const queries = new Set()
 
   queries.add(query)
+
+  if (!taste) {
+    return [...queries]
+  }
 
   taste.artists.slice(0, 5).forEach((artist) => {
     queries.add(`${query} ${artist.name}`)
@@ -250,7 +270,14 @@ router.get('/search', async (req, res) => {
       return res.json({ tracks: cachedTracks, cached: true })
     }
 
-    const taste = await getCachedTasteProfile(req, token)
+    let taste = null
+
+    try {
+      taste = await getCachedTasteProfile(req, token)
+    } catch (error) {
+      console.error('Spotify taste profile unavailable, falling back to plain search:', error.message)
+    }
+
     const tracks = await searchTracksWithFallback(token, query, taste)
 
     if (tracks.length > 0) {

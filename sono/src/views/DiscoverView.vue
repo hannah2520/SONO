@@ -119,6 +119,12 @@ function normalizeTracks(rawTracks) {
     .filter((t) => t.track_id) // 🚨 only keep if we have a valid ID
 }
 
+function applyTrackResults(rawTracks) {
+  tracks.value = normalizeTracks(rawTracks)
+  batchIndex = 0
+  updateRecommendations()
+}
+
 async function fetchStatus() {
   try {
     const res = await fetch(`${API_URL}/api/auth/status`, {
@@ -185,9 +191,7 @@ async function searchSpotify(options = {}) {
     )
     if (!res.ok) throw new Error('Spotify search failed')
     const data = await res.json()
-    tracks.value = normalizeTracks(data.tracks)
-    batchIndex = 0
-    updateRecommendations()
+    applyTrackResults(data.tracks)
   } catch (err) {
     console.error('Error searching Spotify:', err)
   } finally {
@@ -247,6 +251,11 @@ async function searchSpotifyByQueries(queries) {
         }
       )
 
+      if (!response.ok) {
+        console.error(`Spotify query failed for "${query}" with status ${response.status}`)
+        continue
+      }
+
       const data = await response.json()
 
       if (data?.tracks) {
@@ -257,8 +266,14 @@ async function searchSpotifyByQueries(queries) {
     const unique = new Map()
 
     results.forEach((track) => {
-      if (!unique.has(track.id)) {
-        unique.set(track.id, track)
+      const trackKey = track?.id || track?.track_id
+
+      if (!trackKey) {
+        return
+      }
+
+      if (!unique.has(trackKey)) {
+        unique.set(trackKey, track)
       }
     })
 
@@ -310,8 +325,12 @@ async function rerunByMode() {
   })
 
   if (queries.length) {
-    await searchSpotifyByQueries(queries, currentMood.value)
-    return
+    const modeTracks = await searchSpotifyByQueries(queries)
+
+    if (modeTracks.length > 0) {
+      applyTrackResults(modeTracks)
+      return
+    }
   }
 
   if (searchTerm.value) {
