@@ -37,7 +37,7 @@
           v-for="(cell, i) in calendarCells"
           :key="i"
           :class="['calendar-cell', { empty: !cell, today: isToday(cell), 'has-mood': cell && getEntry(cell) }]"
-          :style="cell && getEntry(cell) ? { borderTop: `4px solid ${getEntry(cell).color}` } : {}"
+          :style="cell && getEntry(cell) ? { '--mood-color': getEntry(cell).color } : {}"
           @click="cell && openDay(cell)"
         >
           <template v-if="cell">
@@ -50,7 +50,7 @@
 
     <!-- Day detail modal -->
     <div v-if="selectedEntry" class="modal-backdrop" @click.self="selectedEntry = null">
-      <div class="modal" :style="{ borderTop: `5px solid ${selectedEntry.color}` }">
+      <div class="modal" :style="{ '--mood-color': selectedEntry.color }">
         <button class="modal-close" @click="selectedEntry = null">×</button>
         <p class="modal-date">{{ selectedDateLabel }}</p>
         <p class="modal-mood">{{ selectedEntry.mood }}</p>
@@ -180,12 +180,15 @@ function goDiscover(entry) {
   --flirty: #f584b1;
 }
 
+/* ============================================================
+   PAGE WRAPPER
+   ============================================================ */
 .mood-calendar {
   display: flex;
   flex-direction: column;
   align-items: center;
   min-height: 100vh;
-  padding: 3rem 1.5rem 4rem;
+  padding: 3.5rem 1.5rem 5rem;
   position: relative;
   z-index: 0;
   overflow: hidden;
@@ -195,12 +198,14 @@ function goDiscover(entry) {
   box-sizing: border-box;
 }
 
-/* ===== BLOB BACKGROUNDS ===== */
+/* ============================================================
+   BLOB BACKGROUNDS
+   ============================================================ */
 .mood-calendar::before {
   content: '';
   position: absolute;
   inset: -18% -15%;
-  z-index: -1;
+  z-index: -2;
   pointer-events: none;
   background-repeat: no-repeat;
   background-image:
@@ -250,19 +255,25 @@ function goDiscover(entry) {
   100% { transform: translate3d(28px, -62px, 0)  scale(0.94); opacity: 0.32; }
 }
 
-/* ===== HEADING ===== */
+/* ============================================================
+   HEADING
+   ============================================================ */
 .title {
-  font-size: 2.4rem;
-  font-weight: 800;
-  color: var(--confident);
-  margin-bottom: 0.65rem;
+  font-size: 2.6rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #fff;
+  margin-bottom: 0.7rem;
 }
 
 .mood-calendar h6 {
   font-size: 1rem;
-  color: rgba(255,255,255,0.85);
-  margin-bottom: 2rem;
-  max-width: 520px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 2.5rem;
+  max-width: 480px;
+  font-weight: 400;
+  line-height: 1.6;
 }
 
 .mood-calendar h6 span {
@@ -270,45 +281,71 @@ function goDiscover(entry) {
   font-weight: 700;
 }
 
-/* ===== STAT CARDS ===== */
+/* ============================================================
+   STAT CARDS
+   ============================================================ */
 .calendar-header {
   display: flex;
   justify-content: center;
-  gap: 1rem;
-  margin-bottom: 2.2rem;
+  gap: 1.1rem;
+  margin-bottom: 2.5rem;
   flex-wrap: wrap;
+  width: 100%;
+  max-width: 860px;
 }
 
 .stat-card {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 14px;
-  padding: 1rem 1.2rem;
-  min-width: 150px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  flex: 1;
+  min-width: 160px;
+  max-width: 220px;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(18px) saturate(140%);
+  border-radius: 1.2rem;
+  padding: 1.4rem 1.2rem 1.2rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  position: relative;
+  overflow: hidden;
 }
 
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+}
+
+.active-days::before { background: linear-gradient(90deg, var(--euphoric), var(--confident)); }
+.streak::before      { background: linear-gradient(90deg, var(--flirty), var(--euphoric)); }
+.moods::before       { background: linear-gradient(90deg, var(--melancholy), var(--serene)); }
+
 .stat-card .value {
-  font-size: 1.8rem;
-  font-weight: 800;
+  font-size: 2.4rem;
+  font-weight: 900;
   margin-bottom: 0.2rem;
-  color: #111;
+  color: #fff;
+  line-height: 1;
 }
 
 .stat-card .label {
-  font-size: 0.82rem;
-  color: #555;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
 }
 
-.active-days { border-top: 4px solid var(--euphoric); }
-.streak      { border-top: 4px solid var(--flirty); }
-.moods       { border-top: 4px solid var(--melancholy); }
-
-/* ===== CALENDAR BODY ===== */
+/* ============================================================
+   CALENDAR BODY
+   ============================================================ */
 .calendar-body {
-  background: rgba(255, 255, 255, 0.96);
-  border-radius: 18px;
-  padding: 1.75rem 1.5rem 2rem;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+  background: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 1.6rem;
+  padding: 2rem 2rem 2.5rem;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
   max-width: 860px;
   width: 100%;
 }
@@ -317,106 +354,140 @@ function goDiscover(entry) {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1.2rem;
-  margin-bottom: 1.2rem;
+  gap: 1.5rem;
+  margin-bottom: 1.75rem;
 }
 
 .month-nav h2 {
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   font-weight: 700;
-  color: #111;
-  min-width: 200px;
+  color: #fff;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  min-width: 220px;
 }
 
 .nav-btn {
-  background: none;
-  border: none;
-  font-size: 1.6rem;
-  color: #555;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
   line-height: 1;
-  padding: 0 0.3rem;
-  transition: color 0.15s;
+  transition: background 0.15s, color 0.15s;
 }
 
-.nav-btn:hover:not(:disabled) { color: #111; }
-.nav-btn:disabled { opacity: 0.3; cursor: default; }
+.nav-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
 
-/* ===== GRID ===== */
+.nav-btn:disabled { opacity: 0.25; cursor: default; }
+
+/* ============================================================
+   GRID
+   ============================================================ */
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 0.45rem;
+  gap: 0.55rem;
 }
 
 .weekday {
   font-weight: 700;
-  color: #666;
-  font-size: 0.8rem;
-  padding-bottom: 0.4rem;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding-bottom: 0.6rem;
 }
 
 .calendar-cell {
-  min-height: 68px;
-  background: #f4f6fb;
-  border-radius: 8px;
+  min-height: 82px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   justify-content: flex-start;
-  padding: 0.4rem 0.3rem;
-  color: #333;
+  padding: 0.6rem 0.55rem 0.5rem;
+  color: rgba(255, 255, 255, 0.75);
   font-weight: 500;
-  border-top: 4px solid transparent;
-  transition: background 0.15s, transform 0.15s;
+  transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
   position: relative;
   overflow: hidden;
 }
 
 .calendar-cell.empty {
   background: transparent;
+  border-color: transparent;
 }
 
 .calendar-cell.today {
-  background: #eef0ff;
-  box-shadow: inset 0 0 0 2px rgba(139, 85, 243, 0.35);
+  background: rgba(139, 85, 243, 0.15);
+  border-color: rgba(139, 85, 243, 0.4);
+  box-shadow: 0 0 0 1px rgba(139, 85, 243, 0.25) inset;
 }
 
+/* Mood-coloured cells — uses --mood-color CSS variable */
 .calendar-cell.has-mood {
   cursor: pointer;
+  background: color-mix(in srgb, var(--mood-color) 18%, rgba(15, 23, 42, 0.6));
+  border-color: color-mix(in srgb, var(--mood-color) 55%, transparent);
+  box-shadow:
+    0 0 18px color-mix(in srgb, var(--mood-color) 20%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--mood-color) 30%, transparent);
 }
 
 .calendar-cell.has-mood:hover {
-  transform: translateY(-2px);
-  background: #e8eaff;
+  transform: translateY(-3px) scale(1.02);
+  background: color-mix(in srgb, var(--mood-color) 28%, rgba(15, 23, 42, 0.5));
+  box-shadow:
+    0 8px 24px color-mix(in srgb, var(--mood-color) 30%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--mood-color) 40%, transparent);
 }
 
 .day-num {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 700;
-  align-self: flex-start;
-  padding-left: 0.1rem;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1;
+  margin-bottom: 0.35rem;
+}
+
+.calendar-cell.today .day-num {
+  color: var(--euphoric);
 }
 
 .mood-label {
-  font-size: 0.62rem;
+  font-size: 0.6rem;
   font-weight: 600;
-  color: #444;
-  margin-top: 0.3rem;
-  text-align: center;
-  line-height: 1.2;
+  color: rgba(255, 255, 255, 0.75);
+  line-height: 1.3;
+  text-align: left;
   max-width: 100%;
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  text-transform: capitalize;
 }
 
-/* ===== MODAL ===== */
+/* ============================================================
+   MODAL
+   ============================================================ */
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -425,42 +496,60 @@ function goDiscover(entry) {
 }
 
 .modal {
-  background: #fff;
-  border-radius: 1.2rem;
-  padding: 2rem 1.75rem 1.75rem;
-  max-width: 360px;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 3px solid var(--mood-color);
+  border-radius: 1.4rem;
+  padding: 2.2rem 2rem 2rem;
+  max-width: 380px;
   width: 100%;
   position: relative;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.5),
+    0 0 40px color-mix(in srgb, var(--mood-color) 12%, transparent);
   text-align: center;
 }
 
 .modal-close {
   position: absolute;
-  top: 0.85rem;
-  right: 1rem;
-  background: none;
+  top: 1rem;
+  right: 1.1rem;
+  background: rgba(255, 255, 255, 0.08);
   border: none;
-  font-size: 1.4rem;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  font-size: 1.1rem;
   cursor: pointer;
-  color: #888;
-  line-height: 1;
+  color: rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.modal-close:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
 }
 
 .modal-date {
-  font-size: 0.8rem;
-  color: #888;
-  margin-bottom: 0.5rem;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin-bottom: 0.6rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.1em;
+  font-weight: 600;
 }
 
 .modal-mood {
-  font-size: 1.5rem;
+  font-size: 1.7rem;
   font-weight: 800;
-  color: #111;
-  margin-bottom: 0.85rem;
+  color: var(--mood-color);
+  margin-bottom: 1rem;
   text-transform: capitalize;
+  text-shadow: 0 0 30px color-mix(in srgb, var(--mood-color) 40%, transparent);
 }
 
 .modal-genres {
@@ -468,50 +557,64 @@ function goDiscover(entry) {
   flex-wrap: wrap;
   gap: 0.4rem;
   justify-content: center;
-  margin-bottom: 0.85rem;
+  margin-bottom: 1rem;
 }
 
 .genre-chip {
-  background: #f0ecff;
-  color: #6b3fd4;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.8);
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
-  padding: 0.25rem 0.7rem;
+  padding: 0.3rem 0.8rem;
+  letter-spacing: 0.03em;
 }
 
 .modal-time {
-  font-size: 0.75rem;
-  color: #aaa;
-  margin-bottom: 1.2rem;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.3);
+  margin-bottom: 1.4rem;
 }
 
 .discover-btn {
   width: 100%;
-  padding: 0.7rem 1rem;
+  padding: 0.8rem 1rem;
   border: none;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--confident), var(--euphoric));
+  background: linear-gradient(90deg, var(--confident), var(--euphoric), var(--flirty));
   color: #fff;
   font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
-  transition: opacity 0.15s;
+  letter-spacing: 0.03em;
+  transition: opacity 0.15s, transform 0.15s;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
-.discover-btn:hover { opacity: 0.88; }
+.discover-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
 
-/* ===== EMPTY HINT ===== */
+/* ============================================================
+   EMPTY HINT
+   ============================================================ */
 .empty-hint {
-  margin-top: 1.5rem;
-  font-size: 0.9rem;
-  color: rgba(255,255,255,0.7);
+  margin-top: 2rem;
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.4);
+  font-style: italic;
 }
 
-/* ===== RESPONSIVE ===== */
-@media (max-width: 600px) {
-  .calendar-cell { min-height: 52px; }
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 640px) {
+  .calendar-body { padding: 1.5rem 1rem 2rem; }
+  .calendar-cell { min-height: 58px; padding: 0.45rem 0.35rem; }
   .mood-label { display: none; }
   .month-nav h2 { font-size: 1rem; min-width: 160px; }
+  .title { font-size: 2rem; }
 }
 </style>
