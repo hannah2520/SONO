@@ -3,6 +3,130 @@ import fetch from 'node-fetch'
 
 const router = express.Router()
 
+const SPOTIFY_ACCOUNTS_URL = 'https://accounts.spotify.com'
+const SPOTIFY_API_URL = 'https://api.spotify.com/v1'
+const DEFAULT_SCOPES = [
+  'user-read-email',
+  'user-read-private',
+  'user-top-read',
+  'user-read-recently-played',
+  'user-library-read',
+]
+
+function normalizeReturnToUrl(returnTo) {
+  const fallback = process.env.APP_ORIGIN || 'http://127.0.0.1:5173/sono/'
+  const raw = String(returnTo || fallback).trim()
+  try {
+    const parsed = new URL(raw)
+    if (!parsed.pathname || parsed.pathname === '/') parsed.pathname = '/sono/'
+    return parsed.toString()
+  } catch {
+    return fallback
+  }
+}
+
+function buildSpotifyAuthorizeUrl(state) {
+  const params = new URLSearchParams({
+    client_id: process.env.SPOTIFY_CLIENT_ID || '',
+    response_type: 'code',
+    redirect_uri: process.env.SPOTIFY_REDIRECT_URI || '',
+    scope: DEFAULT_SCOPES.join(' '),
+    state,
+    show_dialog: 'true',
+  })
+  return `${SPOTIFY_ACCOUNTS_URL}/authorize?${params.toString()}`
+}
+
+async function exchangeCodeForToken(code) {
+  const basicAuth = Buffer.from(
+    `${process.env.SPOTIFY_CLIENT_ID || ''}:${process.env.SPOTIFY_CLIENT_SECRET || ''}`,
+  ).toString('base64')
+  const body = new URLSearchParams({
+    grant_type: 'authorization_code',
+    code,
+    redirect_uri: process.env.SPOTIFY_REDIRECT_URI || '',
+  })
+  const response = await fetch(`${SPOTIFY_ACCOUNTS_URL}/api/token`, {
+    method: 'POST',
+    headers: { Authorization: `Basic ${basicAuth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  })
+  const data = await response.json().catch(() => null)
+  if (!response.ok || !data?.access_token) {
+    throw new Error(`Spotify token exchange failed: ${data?.error_description || data?.error || response.statusText}`)
+  }
+  return data
+}
+
+async function fetchSpotifyProfile(accessToken) {
+  const response = await fetch(`${SPOTIFY_API_URL}/me`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!response.ok) throw new Error(`Spotify profile fetch failed (${response.status})`)
+  return response.json()
+}
+
+/* Auth routes */
+
+router.get('/login', (req, res) => {
+  if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET || !process.env.SPOTIFY_REDIRECT_URI) {
+    return res.status(500).json({ error: 'Spotify environment variables are not configured' })
+  }
+  const origin = req.get('origin') || process.env.APP_ORIGIN
+  const returnTo = req.query.returnTo || origin
+  const state = Math.random().toString(36).slice(2)
+  req.session.spotifyAuthState = state
+  req.session.spotifyAuthReturnTo = normalizeReturnToUrl(returnTo)
+  return res.redirect(buildSpotifyAuthorizeUrl(state))
+})
+
+router.get('/callback', async (req, res) => {
+  const code = String(req.query.code || '').trim()
+  const state = String(req.query.state || '').trim()
+  const expectedState = String(req.session.spotifyAuthState || '').trim()
+  const returnTo = normalizeReturnToUrl(req.session.spotifyAuthReturnTo)
+
+  if (!code) return res.redirect(`${returnTo}?spotify=error&reason=missing_code`)
+  if (!state || !expectedState || state !== expectedState) {
+    return res.redirect(`${returnTo}?spotify=error&reason=invalid_state`)
+  }
+
+  try {
+    const tokenData = await exchangeCodeForToken(code)
+    const profile = await fetchSpotifyProfile(tokenData.access_token)
+    req.session.spotifyToken = tokenData.access_token
+    req.session.spotifyRefreshToken = tokenData.refresh_token || req.session.spotifyRefreshToken
+    req.session.spotifyTokenExpiresAt = Date.now() + Number(tokenData.expires_in || 3600) * 1000
+    req.session.spotifyProfile = profile
+    req.session.spotifyAuthState = null
+    return res.redirect(`${returnTo}?spotify=connected`)
+  } catch (error) {
+    console.error('Spotify callback failed:', error.message)
+    return res.redirect(`${returnTo}?spotify=error&reason=callback_failed`)
+  }
+})
+
+router.get('/status', (req, res) => {
+  const connected = Boolean(req.session.spotifyToken)
+  return res.json({
+    connected,
+    profile: connected ? req.session.spotifyProfile || null : null,
+    expiresAt: connected ? req.session.spotifyTokenExpiresAt || null : null,
+  })
+})
+
+router.post('/logout', (req, res) => {
+  req.session.spotifyToken = null
+  req.session.spotifyRefreshToken = null
+  req.session.spotifyTokenExpiresAt = null
+  req.session.spotifyProfile = null
+  req.session.tasteProfileCache = null
+  req.session.spotifySearchCache = null
+  req.session.spotifyAuthState = null
+  req.session.spotifyAuthReturnTo = null
+  return res.json({ ok: true })
+})
+
 /* -----------------------------
    SPOTIFY FETCH WITH 429 HANDLING
 ----------------------------- */

@@ -160,9 +160,11 @@
 import { ref, nextTick, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMoodRecommendations } from '@/composables/useMoodRecommendations'
+import { useMoodLog } from '@/composables/useMoodLog'
 
 const router = useRouter()
 const { setMoodRecommendations } = useMoodRecommendations()
+const { logMoodForToday } = useMoodLog()
 
 const API_URL = import.meta.env.VITE_API_URL
 
@@ -292,6 +294,8 @@ const sendMessage = async (textOverride = null) => {
               mood: payload.mood,
               genres: payload.genres || [],
             }
+            // Auto-log today's mood from the chatbot conversation
+            logMoodForToday(payload.mood, payload.genres || [])
             detectedMood.value = payload.mood || ''
             detectedSearchTerm.value =
               payload.queryLabel ||
