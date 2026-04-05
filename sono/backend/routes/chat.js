@@ -27,8 +27,9 @@ function getOpenAIClient() {
 }
 
 router.post('/stream', async (req, res) => {
-  const { messages } = req.body
+  const { messages, context, auth } = req.body
   const spotifyToken = req.session?.spotifyToken || null
+  const chatContext = normalizeChatContext(context, auth)
 
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: 'Messages required' })
@@ -69,12 +70,36 @@ router.post('/stream', async (req, res) => {
                   items: { type: 'string' },
                   maxItems: 8,
                 },
+                energy: { type: 'string' },
+                intent: { type: 'string' },
+                discoveryPreference: { type: 'string' },
+                responseType: { type: 'string' },
+                needsClarification: { type: 'boolean' },
+                clarificationQuestion: { type: 'string' },
+                artistSeed: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  maxItems: 3,
+                },
               },
-              required: ['reply', 'mood', 'genres', 'queryLabel', 'searchQueries'],
+              required: [
+                'reply',
+                'mood',
+                'genres',
+                'queryLabel',
+                'searchQueries',
+                'energy',
+                'intent',
+                'discoveryPreference',
+                'responseType',
+                'needsClarification',
+                'clarificationQuestion',
+                'artistSeed',
+              ],
             },
           },
         },
-        messages: buildOpenAIMessages(messages, tasteSummary),
+        messages: buildOpenAIMessages(messages, tasteSummary, chatContext),
       }),
       OPENAI_TIMEOUT_MS,
       'OpenAI request timed out',
@@ -95,13 +120,19 @@ router.post('/stream', async (req, res) => {
           tracks: [],
           queryLabel: 'late night calm',
           searchQueries: ['melodic indie pop', 'moody alternative r&b'],
+          energy: 'medium',
+          intent: 'match',
+          discoveryPreference: 'mixed',
+          responseType: 'recommendation',
+          needsClarification: false,
+          clarificationQuestion: '',
         })}>>>`,
       )
       return res.end()
     }
 
     const parsed = parseStructuredPayload(message?.content)
-    const payload = normalizePayload(parsed)
+    const payload = normalizePayload(parsed, chatContext)
 
     await writeTextResponse(res, payload.reply)
 
@@ -112,6 +143,13 @@ router.post('/stream', async (req, res) => {
         tracks: [],
         queryLabel: payload.queryLabel,
         searchQueries: payload.searchQueries,
+        energy: payload.energy,
+        intent: payload.intent,
+        discoveryPreference: payload.discoveryPreference,
+        responseType: payload.responseType,
+        needsClarification: payload.needsClarification,
+        clarificationQuestion: payload.clarificationQuestion,
+        artistSeed: payload.artistSeed,
       })}>>>`,
     )
     res.end()
@@ -129,6 +167,12 @@ router.post('/stream', async (req, res) => {
         tracks: [],
         queryLabel: 'late night calm',
         searchQueries: ['melodic indie pop', 'moody alternative r&b'],
+        energy: 'medium',
+        intent: 'match',
+        discoveryPreference: 'mixed',
+        responseType: 'recommendation',
+        needsClarification: false,
+        clarificationQuestion: '',
         error: error.message || 'Chat request failed',
       })}>>>`,
     )
@@ -136,7 +180,7 @@ router.post('/stream', async (req, res) => {
   }
 })
 
-function buildOpenAIMessages(messages, tasteSummary) {
+function buildOpenAIMessages(messages, tasteSummary, chatContext) {
   const systemParts = [
     'You are SONO, a mood-based music discovery AI.',
     'Your job is to understand the user emotionally and turn what they say into strong music retrieval queries.',
@@ -163,10 +207,33 @@ function buildOpenAIMessages(messages, tasteSummary) {
     'Write a warm, natural, concise reply in reply.',
     'The reply should show emotional understanding of the user, but should not be overly poetic or abstract.',
     'Do not put JSON fences or markdown in reply.',
+    'You must return these fields: reply, mood, genres, queryLabel, searchQueries, energy, intent, discoveryPreference, responseType, needsClarification, clarificationQuestion.',
+    'Set responseType to either "clarification" or "recommendation" only.',
+    'If emotional context is weak or conflicting, ask exactly one clear follow-up question, set responseType="clarification", needsClarification=true, and keep clarificationQuestion non-empty.',
+    'If context is sufficient, set responseType="recommendation", needsClarification=false, and clarificationQuestion="".',
+    'Respect user intent values like match, shift, discover, focus, regulate.',
+    'Respect discoveryPreference values like familiar, mixed, hidden_gems when forming searchQueries.',
+    'When discoveryPreference is hidden_gems, avoid obvious mainstream-only phrasing.',
+    'If the user explicitly names a specific artist (e.g. "songs like K Camp", "similar to Drake"), add that artist name to artistSeed. Otherwise artistSeed must be an empty array.',
+    'artistSeed should only contain real, well-known artist names the user literally mentioned — never invent artist names.',
   ]
 
   if (tasteSummary) {
     systemParts.push(`User Spotify taste summary: ${tasteSummary}`)
+  }
+
+  if (chatContext) {
+    const contextSummary = [
+      `mood=${chatContext.mood || 'unknown'}`,
+      `energy=${chatContext.energy || 'unknown'}`,
+      `intent=${chatContext.intent || 'unknown'}`,
+      `discoveryPreference=${chatContext.discoveryPreference || 'mixed'}`,
+      `genres=${(chatContext.genres || []).join(', ') || 'none'}`,
+      `lastFeedback=${chatContext.lastFeedback || 'none'}`,
+      `authConnected=${chatContext.authConnected ? 'yes' : 'no'}`,
+    ].join(' | ')
+
+    systemParts.push(`Structured frontend context: ${contextSummary}`)
   }
 
   return [
@@ -263,19 +330,35 @@ function parseStructuredPayload(content) {
   throw new Error('Structured response was empty')
 }
 
-function normalizePayload(payload) {
-  const safeMood = normalizeMood(payload?.mood)
+function normalizePayload(payload, chatContext = null) {
+  const safeMood = normalizeMood(payload?.mood || chatContext?.mood)
   const safeGenres = Array.isArray(payload?.genres)
     ? unique(
         payload.genres
           .map((genre) => String(genre).trim())
           .filter(Boolean),
       ).slice(0, 6)
-    : []
+    : Array.isArray(chatContext?.genres)
+      ? unique(
+          chatContext.genres
+            .map((genre) => String(genre).trim())
+            .filter(Boolean),
+        ).slice(0, 6)
+      : []
   const safeReply =
     String(payload?.reply || '').trim() ||
     "I have a vibe in mind for you — let's find something that feels right."
   const safeQueryLabel = normalizeMood(payload?.queryLabel || safeMood)
+  const safeEnergy = normalizeEnergy(payload?.energy || chatContext?.energy)
+  const safeIntent = normalizeIntent(payload?.intent || chatContext?.intent)
+  const safeDiscoveryPreference = normalizeDiscoveryPreference(
+    payload?.discoveryPreference || chatContext?.discoveryPreference,
+  )
+  const responseType = normalizeResponseType(payload?.responseType)
+  const needsClarification = Boolean(payload?.needsClarification) || responseType === 'clarification'
+  const clarificationQuestion = needsClarification
+    ? normalizeClarificationQuestion(payload?.clarificationQuestion)
+    : ''
 
   const rawSearchQueries = Array.isArray(payload?.searchQueries)
     ? payload.searchQueries
@@ -287,8 +370,16 @@ function normalizePayload(payload) {
   const dedupedQueries = unique(filteredQueries)
   const diversifiedQueries = diversifySearchQueries(dedupedQueries)
 
-  const fallbackQueries = buildFallbackSearchQueries(safeMood, safeGenres)
+  const fallbackQueries = buildFallbackSearchQueries(safeMood, safeGenres, {
+    energy: safeEnergy,
+    intent: safeIntent,
+    discoveryPreference: safeDiscoveryPreference,
+  })
   const searchQueries = unique([...diversifiedQueries, ...fallbackQueries]).slice(0, MAX_SEARCH_QUERIES)
+
+  const artistSeed = Array.isArray(payload?.artistSeed)
+    ? unique(payload.artistSeed.map((a) => String(a || '').trim()).filter(Boolean)).slice(0, 3)
+    : []
 
   return {
     reply: safeReply,
@@ -296,7 +387,28 @@ function normalizePayload(payload) {
     genres: safeGenres,
     queryLabel: safeQueryLabel,
     searchQueries,
+    energy: safeEnergy,
+    intent: safeIntent,
+    discoveryPreference: safeDiscoveryPreference,
+    responseType,
+    needsClarification,
+    clarificationQuestion,
+    artistSeed,
   }
+}
+
+function normalizeOptionalMood(value) {
+  const text = String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/^music for\s+/i, '')
+    .replace(/^songs for\s+/i, '')
+    .replace(/^playlist for\s+/i, '')
+    .replace(/^vibes? for\s+/i, '')
+
+  if (!text) return ''
+
+  return normalizeMood(text)
 }
 
 function normalizeMood(value) {
@@ -327,6 +439,66 @@ function normalizeSearchPhrase(value) {
   if (!text) return ''
 
   return text.slice(0, 80)
+}
+
+function normalizeEnergy(value) {
+  const text = normalizeText(value)
+
+  if (!text) return 'medium'
+  if (['low', 'calm', 'soft'].includes(text)) return 'low'
+  if (['high', 'intense', 'hype'].includes(text)) return 'high'
+  if (['steady', 'focused'].includes(text)) return 'steady'
+  return 'medium'
+}
+
+function normalizeIntent(value) {
+  const text = normalizeText(value)
+  const allowed = new Set(['match', 'shift', 'discover', 'focus', 'regulate'])
+  if (allowed.has(text)) return text
+  return 'match'
+}
+
+function normalizeDiscoveryPreference(value) {
+  const text = normalizeText(value)
+  const allowed = new Set(['familiar', 'mixed', 'hidden_gems'])
+  if (allowed.has(text)) return text
+  if (text === 'hidden gems') return 'hidden_gems'
+  return 'mixed'
+}
+
+function normalizeResponseType(value) {
+  const text = normalizeText(value)
+  return text === 'clarification' ? 'clarification' : 'recommendation'
+}
+
+function normalizeClarificationQuestion(value) {
+  const text = String(value || '').trim().replace(/\s+/g, ' ')
+
+  if (text) {
+    return text.slice(0, 180)
+  }
+
+  return 'Do you want something familiar and comforting, or more discovery-focused and new?'
+}
+
+function normalizeChatContext(rawContext, rawAuth) {
+  const context = rawContext && typeof rawContext === 'object' ? rawContext : {}
+  const auth = rawAuth && typeof rawAuth === 'object' ? rawAuth : {}
+
+  const genres = Array.isArray(context.genres)
+    ? unique(context.genres.map((genre) => String(genre || '').trim()).filter(Boolean)).slice(0, 6)
+    : []
+
+  return {
+    mood: normalizeOptionalMood(context.mood),
+    energy: normalizeEnergy(context.energy),
+    intent: normalizeIntent(context.intent),
+    discoveryPreference: normalizeDiscoveryPreference(context.discoveryPreference),
+    genres,
+    lastFeedback: String(context.lastFeedback || '').trim().slice(0, 220),
+    authConnected: Boolean(auth.connected),
+    authName: String(auth.name || '').trim().slice(0, 80),
+  }
 }
 
 function normalizeText(value) {
@@ -414,10 +586,26 @@ function diversifySearchQueries(queries) {
   return diversified
 }
 
-function buildFallbackSearchQueries(mood, genres) {
+function buildFallbackSearchQueries(mood, genres, options = {}) {
+  const { energy = 'medium', intent = 'match', discoveryPreference = 'mixed' } = options
   const primaryGenre = genres[0] || ''
+  const gemsBias = discoveryPreference === 'hidden_gems' ? 'hidden gems' : ''
+  const intentModifier =
+    intent === 'shift'
+      ? 'mood lift'
+      : intent === 'focus'
+        ? 'focus'
+        : intent === 'regulate'
+          ? 'calm'
+          : intent === 'discover'
+            ? 'discovery'
+            : ''
+  const energyModifier = energy === 'high' ? 'high energy' : energy === 'low' ? 'soft' : 'steady'
+
   const candidates = [
-    primaryGenre ? `${mood} ${primaryGenre}` : '',
+    primaryGenre ? `${primaryGenre} ${energyModifier}` : `indie pop ${energyModifier}`,
+    primaryGenre ? `${primaryGenre} ${intentModifier}`.trim() : `alternative ${intentModifier}`.trim(),
+    gemsBias ? `${primaryGenre || 'indie'} ${gemsBias}` : '',
     `melodic indie pop`,
     `moody alternative r&b`,
     `soft indie folk`,

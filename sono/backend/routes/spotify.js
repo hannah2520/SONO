@@ -3,6 +3,164 @@ import fetch from 'node-fetch'
 
 const router = express.Router()
 
+const SPOTIFY_ACCOUNTS_URL = 'https://accounts.spotify.com'
+const SPOTIFY_API_URL = 'https://api.spotify.com/v1'
+const DEFAULT_SCOPES = [
+  'user-read-email',
+  'user-read-private',
+  'user-top-read',
+  'user-read-recently-played',
+  'user-library-read',
+]
+
+function normalizeReturnToUrl(returnTo) {
+  const fallback = process.env.APP_ORIGIN || 'http://127.0.0.1:5173/sono/'
+  const raw = String(returnTo || fallback).trim()
+
+  try {
+    const parsed = new URL(raw)
+
+    if (!parsed.pathname || parsed.pathname === '/') {
+      parsed.pathname = '/sono/'
+    }
+
+    return parsed.toString()
+  } catch {
+    return fallback
+  }
+}
+
+function buildSpotifyAuthorizeUrl(state) {
+  const params = new URLSearchParams({
+    client_id: process.env.SPOTIFY_CLIENT_ID || '',
+    response_type: 'code',
+    redirect_uri: process.env.SPOTIFY_REDIRECT_URI || '',
+    scope: DEFAULT_SCOPES.join(' '),
+    state,
+    show_dialog: 'true',
+  })
+
+  return `${SPOTIFY_ACCOUNTS_URL}/authorize?${params.toString()}`
+}
+
+async function exchangeCodeForToken(code) {
+  const basicAuth = Buffer.from(
+    `${process.env.SPOTIFY_CLIENT_ID || ''}:${process.env.SPOTIFY_CLIENT_SECRET || ''}`,
+  ).toString('base64')
+
+  const body = new URLSearchParams({
+    grant_type: 'authorization_code',
+    code,
+    redirect_uri: process.env.SPOTIFY_REDIRECT_URI || '',
+  })
+
+  const response = await fetch(`${SPOTIFY_ACCOUNTS_URL}/api/token`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${basicAuth}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: body.toString(),
+  })
+
+  const data = await response.json().catch(() => null)
+
+  if (!response.ok || !data?.access_token) {
+    const detail = data?.error_description || data?.error || response.statusText
+    throw new Error(`Spotify token exchange failed: ${detail}`)
+  }
+
+  return data
+}
+
+async function fetchSpotifyProfile(accessToken) {
+  const response = await fetch(`${SPOTIFY_API_URL}/me`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => '')
+    throw new Error(`Spotify profile fetch failed (${response.status}): ${body}`)
+  }
+
+  return response.json()
+}
+
+router.get('/login', (req, res) => {
+  if (
+    !process.env.SPOTIFY_CLIENT_ID ||
+    !process.env.SPOTIFY_CLIENT_SECRET ||
+    !process.env.SPOTIFY_REDIRECT_URI
+  ) {
+    return res.status(500).json({ error: 'Spotify environment variables are not configured' })
+  }
+
+  const origin = req.get('origin') || process.env.APP_ORIGIN
+  const returnTo = req.query.returnTo || origin
+
+  const state = Math.random().toString(36).slice(2)
+  req.session.spotifyAuthState = state
+  req.session.spotifyAuthReturnTo = normalizeReturnToUrl(returnTo)
+
+  return res.redirect(buildSpotifyAuthorizeUrl(state))
+})
+
+router.get('/callback', async (req, res) => {
+  const code = String(req.query.code || '').trim()
+  const state = String(req.query.state || '').trim()
+  const expectedState = String(req.session.spotifyAuthState || '').trim()
+
+  const returnTo = normalizeReturnToUrl(req.session.spotifyAuthReturnTo)
+
+  if (!code) {
+    return res.redirect(`${returnTo}?spotify=error&reason=missing_code`)
+  }
+
+  if (!state || !expectedState || state !== expectedState) {
+    return res.redirect(`${returnTo}?spotify=error&reason=invalid_state`)
+  }
+
+  try {
+    const tokenData = await exchangeCodeForToken(code)
+    const profile = await fetchSpotifyProfile(tokenData.access_token)
+
+    req.session.spotifyToken = tokenData.access_token
+    req.session.spotifyRefreshToken = tokenData.refresh_token || req.session.spotifyRefreshToken
+    req.session.spotifyTokenExpiresAt =
+      Date.now() + Number(tokenData.expires_in || 3600) * 1000
+    req.session.spotifyProfile = profile
+    req.session.spotifyAuthState = null
+
+    return res.redirect(`${returnTo}?spotify=connected`)
+  } catch (error) {
+    console.error('Spotify callback failed:', error.message)
+    return res.redirect(`${returnTo}?spotify=error&reason=callback_failed`)
+  }
+})
+
+router.get('/status', (req, res) => {
+  const connected = Boolean(req.session.spotifyToken)
+
+  return res.json({
+    connected,
+    profile: connected ? req.session.spotifyProfile || null : null,
+    expiresAt: connected ? req.session.spotifyTokenExpiresAt || null : null,
+  })
+})
+
+router.post('/logout', (req, res) => {
+  req.session.spotifyToken = null
+  req.session.spotifyRefreshToken = null
+  req.session.spotifyTokenExpiresAt = null
+  req.session.spotifyProfile = null
+  req.session.tasteProfileCache = null
+  req.session.spotifySearchCache = null
+  req.session.spotifyAuthState = null
+  req.session.spotifyAuthReturnTo = null
+
+  return res.json({ ok: true })
+})
+
 /* -----------------------------
    SPOTIFY FETCH WITH 429 HANDLING
 ----------------------------- */
@@ -156,14 +314,14 @@ function buildSearchQueries(query, taste) {
   const artists = Array.isArray(taste.artists) ? taste.artists : []
   const tracks = Array.isArray(taste.tracks) ? taste.tracks : []
 
-  artists.slice(0, 5).forEach((artist) => {
-    queries.add(`${query} ${artist.name}`)
+  // Use artist: filter so Spotify matches by artist identity, not keyword title overlap
+  artists.slice(0, 3).forEach((artist) => {
+    if (artist?.name) queries.add(`artist:"${artist.name}"`)
   })
 
-  tracks.slice(0, 5).forEach((track) => {
-    if (track?.artists?.[0]?.name) {
-      queries.add(`${query} ${track.artists[0].name}`)
-    }
+  tracks.slice(0, 2).forEach((track) => {
+    const artistName = track?.artists?.[0]?.name
+    if (artistName) queries.add(`artist:"${artistName}"`)
   })
 
   return [...queries].slice(0, 4)
@@ -304,6 +462,76 @@ router.get('/search', async (req, res) => {
       degraded: true,
       error: error.message,
     })
+  }
+})
+
+/* -----------------------------
+   SIMILAR ARTIST ROUTE
+----------------------------- */
+
+router.get('/similar', async (req, res) => {
+  try {
+    const token = req.session.spotifyToken
+
+    if (!token) {
+      return res.status(401).json({ error: 'Not authenticated with Spotify' })
+    }
+
+    const artistName = String(req.query.artist || '').trim()
+
+    if (!artistName) {
+      return res.status(400).json({ error: 'Artist name required' })
+    }
+
+    // 1. Find the artist on Spotify
+    const searchData = await spotifyFetchJson(
+      `https://api.spotify.com/v1/search?q=${encodeURIComponent(artistName)}&type=artist&limit=1`,
+      token,
+    )
+
+    const seedArtist = searchData?.artists?.items?.[0]
+
+    if (!seedArtist) {
+      return res.json({ tracks: [], seedArtist: null })
+    }
+
+    // 2. Get related artists
+    const relatedData = await spotifyFetchJson(
+      `https://api.spotify.com/v1/artists/${seedArtist.id}/related-artists`,
+      token,
+    )
+
+    // Only use related artists — exclude the seed artist's own tracks
+    const relatedArtists = (relatedData?.artists || []).slice(0, 8)
+
+    // 3. Get top tracks from related artists only
+    const topTrackResults = await Promise.allSettled(
+      relatedArtists.map((artist) =>
+        spotifyFetchJson(
+          `https://api.spotify.com/v1/artists/${artist.id}/top-tracks?market=US`,
+          token,
+        ),
+      ),
+    )
+
+    const seen = new Set()
+    const tracks = []
+
+    topTrackResults.forEach((result) => {
+      if (result.status !== 'fulfilled') return
+      const items = result.value?.tracks || []
+      items.slice(0, 3).forEach((track) => {
+        if (!seen.has(track.id)) {
+          seen.add(track.id)
+          tracks.push(track)
+        }
+      })
+    })
+
+    res.json({ tracks, seedArtist: seedArtist.name })
+  } catch (error) {
+    console.error('Similar artist search failed:', error.message)
+    res.json({ tracks: [], error: error.message })
   }
 })
 

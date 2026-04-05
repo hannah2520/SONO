@@ -65,7 +65,7 @@
 
           </div>
           <a class="title">{{ item.title }}</a>
-          <p class="artist">{{ item.artist }}</p>
+          <p class="artist">{{ displayArtistNames(item) }}</p>
           <iframe
             :src="`https://open.spotify.com/embed/track/${item.track_id}`"
             width="100%"
@@ -85,7 +85,7 @@ import { useRoute } from 'vue-router'
 import { useMoodRecommendations } from '@/composables/useMoodRecommendations'
 
 
-const { moodRecommendations, currentMood, currentGenres, currentSearchTerm, currentSearchQueries } = useMoodRecommendations()
+const { moodRecommendations, currentMood, currentGenres, currentSearchTerm, currentSearchQueries, currentArtistSeed } = useMoodRecommendations()
 const route = useRoute()
 
 
@@ -107,7 +107,7 @@ function buildTrackKey(track) {
   const title = String(track?.title || track?.name || '')
     .trim()
     .toLowerCase()
-  const artist = String(track?.artist || track?.artists || '')
+  const artist = String(track?.artistNames || track?.artist || track?.artists || '')
     .trim()
     .toLowerCase()
 
@@ -126,20 +126,174 @@ function normalizeArtistName(value) {
     .trim()
 }
 
+function parseJsonIfPossible(value) {
+  if (typeof value !== 'string') return value
+
+  const text = value.trim()
+  if (!text || (!text.startsWith('{') && !text.startsWith('['))) {
+    return value
+  }
+
+  try {
+    return JSON.parse(text)
+  } catch {
+    return value
+  }
+}
+
+function displayArtistNames(item) {
+  const candidates = [
+    item?.artistNames,
+    item?.artist,
+    item?.artists,
+  ]
+
+  for (const value of candidates) {
+    const parsed = parseJsonIfPossible(value)
+
+    if (Array.isArray(parsed)) {
+      const names = parsed
+        .map((entry) => {
+          if (typeof entry === 'string') return entry
+          if (entry && typeof entry === 'object') return entry.name || entry.artist || ''
+          return ''
+        })
+        .filter(Boolean)
+        .join(', ')
+
+      if (names) return names
+    }
+
+    if (parsed && typeof parsed === 'object') {
+      if (Array.isArray(parsed.artists)) {
+        const nested = parsed.artists
+          .map((entry) => entry?.name || entry?.artist || '')
+          .filter(Boolean)
+          .join(', ')
+        if (nested) return nested
+      }
+
+      const single = parsed.name || parsed.artist || ''
+      if (single) return single
+    }
+
+    if (typeof parsed === 'string') {
+      const cleaned = parsed.trim()
+
+      if (
+        cleaned &&
+        !cleaned.startsWith('[')
+        && !cleaned.startsWith('{')
+        && !/external_urls|open\.spotify\.com|api\.spotify\.com|spotify:/i.test(cleaned)
+      ) {
+        return cleaned
+      }
+    }
+  }
+
+  return 'Unknown artist'
+}
+
+function extractTrackTitle(track) {
+  const candidate = parseJsonIfPossible(track?.title || track?.name || '')
+
+  if (typeof candidate === 'string') {
+    return candidate
+  }
+
+  if (candidate && typeof candidate === 'object') {
+    return candidate.name || candidate.title || ''
+  }
+
+  return ''
+}
+
+function extractArtistNames(value) {
+  const parsed = parseJsonIfPossible(value)
+
+  if (Array.isArray(parsed)) {
+    return parsed
+      .map((item) => {
+        if (typeof item === 'string') return item
+        if (item && typeof item === 'object') {
+          return item.name || item.artist || item.display_name || ''
+        }
+        return ''
+      })
+      .filter(Boolean)
+      .join(', ')
+  }
+
+  if (parsed && typeof parsed === 'object') {
+    if (Array.isArray(parsed.artists)) {
+      return extractArtistNames(parsed.artists)
+    }
+
+    return parsed.name || parsed.artist || parsed.display_name || ''
+  }
+
+  return typeof parsed === 'string' ? parsed : ''
+}
+
+function sanitizeDisplayText(value, fallback, maxLength = 100) {
+  const raw = Array.isArray(value) ? value.join(', ') : String(value || '')
+  const cleaned = raw
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`[^`]*`/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const looksLikeCode =
+    /^\s*[\[{]/.test(cleaned) ||
+    /external_urls|spotify:|href"|https:\/\/api\.spotify\.com|open\.spotify\.com/i.test(cleaned) ||
+    /(function\s*\(|=>|\bconst\b|\blet\b|\bimport\b|\bexport\b|<script|<template|\{\s*"\w+"\s*:)/i.test(
+      cleaned,
+    )
+
+  if (!cleaned || looksLikeCode) {
+    return fallback
+  }
+
+  return cleaned.slice(0, maxLength)
+}
+
 function normalizeTracks(rawTracks) {
   return (rawTracks || [])
-    .filter((t) => t)
-    .map((track) => ({
-      title: track.title || track.name || 'Unknown title',
-      artist: track.artist || track.artists || 'Unknown artist',
-      image:
-        track.image ||
-        track.albumArt ||
-        (track.album && track.album.images && track.album.images[0] && track.album.images[0].url) ||
-        '',
-      track_id: track.track_id || track.id || '',
-    }))
-    .filter((t) => t.track_id) // 🚨 only keep if we have a valid ID
+    .filter(Boolean)
+    .map((track) => {
+      const title = sanitizeDisplayText(
+        extractTrackTitle(track),
+        'Unknown title',
+        90,
+      )
+
+      const artistSource =
+        track.artistNames ??
+        track.artist ??
+        track.artists ??
+        (track.album?.artists ?? null)
+
+      const artistNames = sanitizeDisplayText(
+        extractArtistNames(artistSource),
+        'Unknown artist',
+        110,
+      )
+
+      const trackId = track.track_id || track.id || ''
+
+      return {
+        title,
+        artistNames,
+        image:
+          track.image ||
+          track.albumArt ||
+          track.album?.images?.[0]?.url ||
+          '',
+        track_id: trackId,
+      }
+    })
+    .filter((t) => t.track_id)
 }
 
 function applyTrackResults(rawTracks) {
@@ -273,7 +427,7 @@ async function searchSpotify(options = {}) {
 async function searchSpotifyByQueries(queries) {
   if (!queries || queries.length === 0) return []
 
-  const cleanedQueries = [...new Set(queries)].slice(0, 2)
+  const cleanedQueries = [...new Set(queries)].slice(0, 4)
   searchLoading.value = true
   loadingMessage.value = 'Blending recommendations for your mood...'
 
@@ -330,24 +484,41 @@ function buildModeQueries({ mode, mood, genres, searchTermValue, aiQueries }) {
   const genreList = Array.isArray(genres) ? genres.filter(Boolean) : []
   const aiList = Array.isArray(aiQueries) ? aiQueries.filter(Boolean) : []
 
-  const base = uniqueQueries([termText, moodText, ...aiList])
+  // Use AI queries exclusively when available — avoids bare mood labels matching song titles
+  const base = aiList.length > 0
+    ? uniqueQueries(aiList)
+    : uniqueQueries([termText, moodText].filter(Boolean))
 
   if (mode === 'mood') {
     return uniqueQueries([
       ...base,
-      moodText && `${moodText} ${genreList.join(' ')}`,
-      moodText && `${moodText} emotional ${genreList.join(' ')}`,
-      moodText && `moody ${moodText} ${termText}`,
-    ]).slice(0, 6)
+      genreList.length ? genreList.join(' ') : '',
+    ].filter(Boolean)).slice(0, 6)
   }
 
   return uniqueQueries([
     ...base,
     ...genreList.map((genre) => `${genre} new releases`),
     ...genreList.map((genre) => `${genre} hidden gems`),
-    moodText && `${moodText} but different vibe ${genreList.join(' ')}`,
-    termText && `${termText} fresh discovery`,
   ]).slice(0, 8)
+}
+
+async function fetchSimilarArtistTracks(artistName) {
+  searchLoading.value = true
+  loadingMessage.value = `Finding music similar to ${artistName}...`
+  try {
+    const res = await fetch(
+      `${API_URL}/api/spotify/similar?artist=${encodeURIComponent(artistName)}`,
+      { credentials: 'include' },
+    )
+    if (!res.ok) return []
+    const data = await res.json()
+    return data.tracks || []
+  } catch {
+    return []
+  } finally {
+    searchLoading.value = false
+  }
 }
 
 async function rerunByMode() {
@@ -397,8 +568,13 @@ function updateRecommendations() {
   for (const track of pool) {
     if (nextBatch.length >= 3) break
 
-    const trackKey = buildTrackKey(track)
-    const artistKey = normalizeArtistName(track.artist)
+    const cleanedTrack = {
+      ...track,
+      artistNames: displayArtistNames(track),
+    }
+
+    const trackKey = buildTrackKey(cleanedTrack)
+    const artistKey = normalizeArtistName(cleanedTrack.artistNames)
 
     if (usedTrackKeys.has(trackKey) || usedArtists.has(artistKey)) {
       continue
@@ -406,22 +582,28 @@ function updateRecommendations() {
 
     usedTrackKeys.add(trackKey)
     usedArtists.add(artistKey)
-    nextBatch.push(track)
+    nextBatch.push(cleanedTrack)
   }
 
   for (const track of pool) {
     if (nextBatch.length >= 3) break
 
-    const trackKey = buildTrackKey(track)
+    const cleanedTrack = {
+      ...track,
+      artistNames: displayArtistNames(track),
+    }
+
+    const trackKey = buildTrackKey(cleanedTrack)
 
     if (usedTrackKeys.has(trackKey)) {
       continue
     }
 
     usedTrackKeys.add(trackKey)
-    nextBatch.push(track)
+    nextBatch.push(cleanedTrack)
   }
 
+  console.log('recommendations preview', nextBatch)
   recommendations.value = nextBatch
 }
 
@@ -450,6 +632,16 @@ onMounted(async () => {
   }
   const dedupedAiQueries = uniqueQueries(aiQueries)
   lastAiQueries.value = dedupedAiQueries
+
+  if (connected.value && currentArtistSeed.value.length > 0) {
+    const seedArtist = currentArtistSeed.value[0]
+    searchTerm.value = `Similar to ${seedArtist}`
+    const similarTracks = await fetchSimilarArtistTracks(seedArtist)
+    if (similarTracks.length > 0) {
+      applyTrackResults(similarTracks)
+      return
+    }
+  }
 
   if (connected.value && dedupedAiQueries.length) {
     searchTerm.value = currentSearchTerm.value || routeQuery || routeMood
@@ -772,6 +964,10 @@ onMounted(async () => {
   color: #ddd;
   font-size: 0.85rem;
   margin-bottom: 0.5rem;
+  text-align: center;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  max-width: 100%;
 }
 
 iframe {
