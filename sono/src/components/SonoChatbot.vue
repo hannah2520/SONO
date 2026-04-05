@@ -52,6 +52,38 @@
           </span>
         </div>
 
+        <div
+          v-if="needsClarification && clarificationQuestion"
+          class="clarification-panel"
+        >
+          <span class="clarification-label">{{ clarificationQuestion }}</span>
+          <div
+            v-if="clarificationOptions && clarificationOptions.length > 0"
+            class="clarification-options"
+          >
+            <button
+              v-for="(opt, idx) in clarificationOptions"
+              :key="idx"
+              type="button"
+              class="clarification-chip"
+              @click="prefillClarification(opt)"
+              :disabled="loading"
+            >
+              {{ opt.label }}
+            </button>
+          </div>
+          <div v-else class="clarification-fallback">
+            <button
+              type="button"
+              class="clarification-chip"
+              @click="prefillClarification()"
+              :disabled="loading"
+            >
+              Respond
+            </button>
+          </div>
+        </div>
+
         <!-- Messages -->
         <div class="chat-messages" ref="messagesContainer">
           <div
@@ -107,7 +139,6 @@
         <div
           v-if="tracks.length > 0"
           class="tracks-container"
-          style="display: none;"
         >
           <div class="tracks-header">
             <h3 class="tracks-title">Fresh picks</h3>
@@ -171,6 +202,14 @@ const API_URL = import.meta.env.VITE_API_URL
 const TAIL_BEGIN = '<<<JSON:';
 const TAIL_END = '>>>';
 
+// Returns how many chars at the end of str are a prefix of marker
+function endsWithPartialMarker(str, marker) {
+  for (let len = Math.min(str.length, marker.length - 1); len > 0; len--) {
+    if (str.endsWith(marker.slice(0, len))) return len
+  }
+  return 0
+}
+
 const messages = ref([
   {
     role: 'assistant',
@@ -184,14 +223,202 @@ const header = ref({ mood: '', genres: [] })
 const detectedMood = ref('') // Track the detected mood for the button
 const detectedSearchTerm = ref('')
 const detectedSearchQueries = ref([])
+const detectedArtistSeed = ref([])
+const responseType = ref('recommendation')
+const needsClarification = ref(false)
+const clarificationQuestion = ref('')
+const chatContext = ref({
+  mood: '',
+  energy: '',
+  intent: '',
+  discoveryPreference: '',
+  genres: [],
+  lastFeedback: '',
+})
 const auth = ref({ connected: false, name: '' })
 const messagesContainer = ref(null)
-const quickMoods = ['Happy', 'Sad', 'Chill', 'Angry', 'Focus']
+const quickMoodOptions = {
+  Overwhelmed: {
+    mood: 'overwhelmed',
+    energy: 'low',
+    intent: 'regulate',
+    discoveryPreference: 'familiar',
+    prompt: 'I feel overwhelmed. Give me calming tracks that help me regulate and breathe.',
+  },
+  Hopeful: {
+    mood: 'hopeful',
+    energy: 'medium',
+    intent: 'match',
+    discoveryPreference: 'mixed',
+    prompt: 'I feel hopeful and want warm, uplifting songs with emotional depth.',
+  },
+  'Need to focus': {
+    mood: 'focused',
+    energy: 'steady',
+    intent: 'focus',
+    discoveryPreference: 'familiar',
+    prompt: 'I need to focus deeply. Recommend distraction-free tracks with steady energy.',
+  },
+  'Need a mood shift': {
+    mood: 'stuck',
+    energy: 'medium',
+    intent: 'shift',
+    discoveryPreference: 'mixed',
+    prompt: 'I need a mood shift. Start where I am and gradually lift the energy.',
+  },
+  'Want hidden gems': {
+    mood: 'curious',
+    energy: 'medium',
+    intent: 'discover',
+    discoveryPreference: 'hidden_gems',
+    prompt: 'I want hidden gems over mainstream tracks. Prioritize lesser-known artists.',
+  },
+}
+const quickMoods = Object.keys(quickMoodOptions)
 
 const emit = defineEmits(['close'])
 
 const toggleChat = () => {
   emit('close')
+}
+
+const generateClarificationOptions = (question) => {
+  // Parse the clarification question to detect what type of answer is expected
+  const q = String(question || '').toLowerCase()
+
+  if (
+    q.includes('familiar') ||
+    q.includes('discovery') ||
+    q.includes('discovery preference') ||
+    q.includes('known') ||
+    q.includes('new')
+  ) {
+    // Discovery preference question
+    return [
+      { label: 'Familiar', context: { discoveryPreference: 'familiar' } },
+      { label: 'Mixed', context: { discoveryPreference: 'mixed' } },
+      { label: 'Hidden Gems', context: { discoveryPreference: 'hidden_gems' } },
+    ]
+  }
+
+  if (q.includes('energy') || q.includes('upbeat') || q.includes('calm') || q.includes('intense')) {
+    // Energy level question
+    return [
+      { label: 'Calm', context: { energy: 'low' } },
+      { label: 'Steady', context: { energy: 'steady' } },
+      { label: 'Energetic', context: { energy: 'high' } },
+    ]
+  }
+
+  if (q.includes('genre') || q.includes('style') || q.includes('artist')) {
+    // Genre/style preference question – offer text prefill since it's open-ended
+    return null // Falls back to text prefill
+  }
+
+  // Default: offer discovery preferences
+  return [
+    { label: 'Familiar', context: { discoveryPreference: 'familiar' } },
+    { label: 'Mixed', context: { discoveryPreference: 'mixed' } },
+    { label: 'Hidden Gems', context: { discoveryPreference: 'hidden_gems' } },
+  ]
+}
+
+const clarificationOptions = ref([])
+
+const prefillClarification = (option = null) => {
+  if (option) {
+    // Chip was clicked: merge context + send predefined response
+    chatContext.value = { ...chatContext.value, ...option.context }
+    const response = `I prefer ${option.label.toLowerCase()} recommendations.`
+    sendMessage(response)
+  } else {
+    // Fallback: text prefill (for open-ended questions)
+    const prompt = String(clarificationQuestion.value || '').trim()
+    if (!prompt || loading.value) return
+    userInput.value = `Answering your question: ${prompt} I prefer `
+  }
+}
+
+const updateClarificationOptions = () => {
+  const options = generateClarificationOptions(clarificationQuestion.value)
+  clarificationOptions.value = options || []
+}
+
+const parseJsonIfPossible = (value) => {
+  if (typeof value !== 'string') return value
+
+  const text = value.trim()
+  if (!text || (!text.startsWith('{') && !text.startsWith('['))) {
+    return value
+  }
+
+  try {
+    return JSON.parse(text)
+  } catch {
+    return value
+  }
+}
+
+const extractTrackTitle = (track) => {
+  const candidate = parseJsonIfPossible(track?.title || track?.name || '')
+
+  if (typeof candidate === 'string') {
+    return candidate
+  }
+
+  if (candidate && typeof candidate === 'object') {
+    return candidate.name || candidate.title || ''
+  }
+
+  return ''
+}
+
+const extractArtistNames = (value) => {
+  const parsed = parseJsonIfPossible(value)
+
+  if (Array.isArray(parsed)) {
+    return parsed
+      .map((item) => {
+        if (typeof item === 'string') return item
+        if (item && typeof item === 'object') return item.name || item.artist || item.display_name || ''
+        return ''
+      })
+      .filter(Boolean)
+      .join(', ')
+  }
+
+  if (parsed && typeof parsed === 'object') {
+    if (Array.isArray(parsed.artists)) {
+      return extractArtistNames(parsed.artists)
+    }
+
+    return parsed.name || parsed.artist || parsed.display_name || ''
+  }
+
+  return typeof parsed === 'string' ? parsed : ''
+}
+
+const sanitizeTrackText = (value, fallback, maxLength = 80) => {
+  const raw = Array.isArray(value) ? value.join(', ') : String(value || '')
+  let text = raw
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`[^`]*`/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const looksLikeCode =
+    /^\s*[\[{]/.test(text) ||
+    /external_urls|spotify:|href"|https:\/\/api\.spotify\.com|open\.spotify\.com/i.test(text) ||
+    /(function\s*\(|=>|\bconst\b|\blet\b|\bimport\b|\bexport\b|<script|<template|\{\s*"\w+"\s*:)/i.test(
+      text,
+    )
+
+  if (!text || looksLikeCode) {
+    return fallback
+  }
+
+  return text.slice(0, maxLength)
 }
 
 const scrollToBottom = async () => {
@@ -221,7 +448,25 @@ const disconnectSpotify = async () => {
 }
 
 const sendQuickMood = (mood) => {
-  sendMessage(`I'm feeling ${mood.toLowerCase()}`)
+  const option = quickMoodOptions[mood]
+
+  if (option) {
+    chatContext.value = {
+      ...chatContext.value,
+      mood: option.mood,
+      energy: option.energy,
+      intent: option.intent,
+      discoveryPreference: option.discoveryPreference,
+    }
+    sendMessage(option.prompt)
+    return
+  }
+
+  chatContext.value = {
+    ...chatContext.value,
+    mood: String(mood || '').toLowerCase(),
+  }
+  sendMessage(`I'm feeling ${String(mood || '').toLowerCase()}`)
 }
 
 const sendMessage = async (textOverride = null) => {
@@ -234,6 +479,11 @@ const sendMessage = async (textOverride = null) => {
   if (!text.trim() || loading.value) return
 
   const userMessage = text.trim()
+  chatContext.value = {
+    ...chatContext.value,
+    lastFeedback: userMessage,
+  }
+
   if (!textOverride) {
     userInput.value = ''
   }
@@ -260,8 +510,21 @@ const sendMessage = async (textOverride = null) => {
       credentials: 'include',
       body: JSON.stringify({
         messages: messages.value.slice(0, -1), // Exclude the empty assistant message
+        context: chatContext.value,
+        auth: {
+          connected: auth.value.connected,
+          name: auth.value.name || '',
+        },
       }),
     })
+
+    if (!response.ok) {
+      throw new Error(`Request failed with status ${response.status}`)
+    }
+
+    if (!response.body) {
+      throw new Error('No response body from chat stream')
+    }
 
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
@@ -305,19 +568,52 @@ const sendMessage = async (textOverride = null) => {
             detectedSearchQueries.value = Array.isArray(payload.searchQueries)
               ? payload.searchQueries.filter(Boolean)
               : []
+            detectedArtistSeed.value = Array.isArray(payload.artistSeed)
+              ? payload.artistSeed.filter(Boolean)
+              : []
+            responseType.value =
+              payload.responseType === 'clarification' ? 'clarification' : 'recommendation'
+            needsClarification.value =
+              Boolean(payload.needsClarification) || responseType.value === 'clarification'
+            clarificationQuestion.value = needsClarification.value
+              ? String(payload.clarificationQuestion || '').trim()
+              : ''
+            if (needsClarification.value && clarificationQuestion.value) {
+              updateClarificationOptions()
+            } else {
+              clarificationOptions.value = []
+            }
+            chatContext.value = {
+              ...chatContext.value,
+              mood: payload.mood || chatContext.value.mood,
+              genres: payload.genres || chatContext.value.genres,
+              energy: payload.energy || chatContext.value.energy,
+              intent: payload.intent || chatContext.value.intent,
+              discoveryPreference:
+                payload.discoveryPreference || chatContext.value.discoveryPreference,
+            }
 
             const normalizedTracks = (payload.tracks || [])
               .filter((t) => t)
               .map((t) => ({
                 id: t.id || t.track_id,
-                name: t.name || t.title || 'Unknown title',
-                artists: Array.isArray(t.artists)
-                  ? t.artists.join(', ')
-                  : t.artists || t.artist || 'Unknown artist',
+                name: sanitizeTrackText(extractTrackTitle(t), 'Unknown title', 90),
+                
+                
+                artists: sanitizeTrackText(
+                  extractArtistNames(
+                    t.artistNames ??
+                    t.artist ??
+                    t.artists ??
+                    (t.album?.artists ?? null),
+                  ),
+                  'Unknown artist',
+                  110,
+                ),
                 image:
                   t.image ||
                   t.albumArt ||
-                  (t.album && t.album.images && t.album.images[0] && t.album.images[0].url) ||
+                  t.album?.images?.[0]?.url ||
                   '',
                 preview_url: t.preview_url || '',
                 url: t.url || (t.external_urls && t.external_urls.spotify) || '',
@@ -337,6 +633,7 @@ const sendMessage = async (textOverride = null) => {
               payload.genres || [],
               searchLabel,
               payload.searchQueries || [],
+              payload.artistSeed || [],
             )
           } catch (e) {
             console.error('Failed to parse payload:', e)
@@ -351,10 +648,14 @@ const sendMessage = async (textOverride = null) => {
           buf = buf.slice(idx)
         }
       } else {
-        // No JSON marker yet – all of buf is text
-        assistantText += buf
-        messages.value[assistantIndex].content = assistantText
-        buf = ''
+        // No JSON marker yet – keep any partial marker suffix in buf to avoid split-chunk leaks
+        const partialLen = endsWithPartialMarker(buf, TAIL_BEGIN)
+        const safeText = partialLen > 0 ? buf.slice(0, buf.length - partialLen) : buf
+        if (safeText) {
+          assistantText += safeText
+          messages.value[assistantIndex].content = assistantText
+        }
+        buf = partialLen > 0 ? buf.slice(buf.length - partialLen) : ''
       }
 
       await scrollToBottom()
@@ -369,6 +670,9 @@ const sendMessage = async (textOverride = null) => {
   } catch (error) {
     console.error('Error sending message:', error)
     messages.value[assistantIndex].content = `Error: ${error?.message || error}`
+    responseType.value = 'recommendation'
+    needsClarification.value = false
+    clarificationQuestion.value = ''
   } finally {
     loading.value = false
     await scrollToBottom()
@@ -384,6 +688,7 @@ const viewMoreRecommendations = () => {
     header.value.genres,
     detectedSearchTerm.value || header.value.mood,
     detectedSearchQueries.value,
+    detectedArtistSeed.value,
   )
   // Navigate to discover page
   router.push('/discover')
@@ -399,6 +704,7 @@ function goToDiscoverWithMood() {
       header.value.genres,
       searchTerm,
       detectedSearchQueries.value,
+      detectedArtistSeed.value,
     )
     // Navigate to discover page with mood and AI search query
     router.push({
@@ -658,6 +964,55 @@ onMounted(() => {
   background: rgba(15, 23, 42, 0.7);
   font-size: 0.82rem;
   color: #e5e7eb;
+}
+
+.clarification-panel {
+  padding: 0.65rem 1.5rem 0.8rem;
+  background: rgba(15, 23, 42, 0.84);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.clarification-label {
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #d1d5db;
+  font-weight: 700;
+}
+
+.clarification-chip {
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #111827;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: left;
+  padding: 0.5rem 0.85rem;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+}
+
+.clarification-chip:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.2);
+}
+
+.clarification-chip:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.clarification-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.clarification-fallback {
+  display: flex;
 }
 
 /* ============================================================

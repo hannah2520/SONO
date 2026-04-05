@@ -5,16 +5,18 @@ import { ref } from 'vue'
 const moodRecommendations = ref([])
 const currentMood = ref('')
 const currentGenres = ref([])
-const currentSearchTerm = ref('') // 👈 NEW
+const currentSearchTerm = ref('')
 const currentSearchQueries = ref([])
+const currentArtistSeed = ref([])
 
 export function useMoodRecommendations() {
-  const setMoodRecommendations = (tracks, mood, genres, searchTerm, searchQueries) => {
+  const setMoodRecommendations = (tracks, mood, genres, searchTerm, searchQueries, artistSeed) => {
     moodRecommendations.value = tracks || []
     currentMood.value = mood || ''
     currentGenres.value = genres || []
     currentSearchTerm.value = searchTerm || mood || ''
     currentSearchQueries.value = Array.isArray(searchQueries) ? searchQueries.filter(Boolean) : []
+    currentArtistSeed.value = Array.isArray(artistSeed) ? artistSeed.filter(Boolean) : []
   }
 
   const clearMoodRecommendations = () => {
@@ -23,6 +25,7 @@ export function useMoodRecommendations() {
     currentGenres.value = []
     currentSearchTerm.value = ''
     currentSearchQueries.value = []
+    currentArtistSeed.value = []
   }
 
   return {
@@ -31,6 +34,7 @@ export function useMoodRecommendations() {
     currentGenres,
     currentSearchTerm,
     currentSearchQueries,
+    currentArtistSeed,
     setMoodRecommendations,
     clearMoodRecommendations,
   }
