@@ -298,12 +298,17 @@ function goDiscover(entry) {
   flex: 1;
   min-width: 160px;
   max-width: 220px;
-  background: rgba(15, 23, 42, 0.72);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--confident) 30%, transparent),
+    color-mix(in srgb, var(--euphoric) 25%, transparent),
+    color-mix(in srgb, var(--flirty) 18%, transparent)
+  );
   backdrop-filter: blur(18px) saturate(140%);
   border-radius: 1.2rem;
   padding: 1.4rem 1.2rem 1.2rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   position: relative;
   overflow: hidden;
 }
@@ -340,12 +345,17 @@ function goDiscover(entry) {
    CALENDAR BODY
    ============================================================ */
 .calendar-body {
-  background: rgba(15, 23, 42, 0.78);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--confident) 30%, transparent),
+    color-mix(in srgb, var(--euphoric) 25%, transparent),
+    color-mix(in srgb, var(--flirty) 18%, transparent)
+  );
   backdrop-filter: blur(20px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 1.6rem;
   padding: 2rem 2rem 2.5rem;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
   max-width: 860px;
   width: 100%;
 }
@@ -410,8 +420,8 @@ function goDiscover(entry) {
 
 .calendar-cell {
   min-height: 82px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 10px;
   display: flex;
   flex-direction: column;
