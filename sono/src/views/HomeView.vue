@@ -271,12 +271,14 @@ onMounted(() => {
   display: flex;
   gap: 0.75rem;
   align-items: center;
+  flex-wrap: wrap;
   margin-bottom: 1.25rem;
 }
 
 .hero-stats {
   display: flex;
   gap: 1rem;
+  flex-wrap: wrap;
   margin-top: 0.5rem;
 }
 
@@ -285,6 +287,7 @@ onMounted(() => {
   padding: 0.6rem 0.9rem;
   border-radius: 10px;
   text-align: left;
+  min-width: 70px;
 }
 
 .stat strong {
@@ -298,7 +301,7 @@ onMounted(() => {
 }
 
 .hero-right {
-  flex: 0 0 320px;
+  flex: 0 0 280px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -356,5 +359,52 @@ onMounted(() => {
   padding: 0.6rem 0.9rem;
   border-radius: 999px;
   font-weight: 700;
+}
+
+/* ── Mobile ── */
+@media (max-width: 768px) {
+  .home-page {
+    padding: 1.5rem 1rem;
+    align-items: flex-start;
+  }
+
+  .hero-card {
+    flex-direction: column;
+    padding: 2rem 1.5rem;
+    gap: 1.5rem;
+  }
+
+  .hero-title {
+    font-size: 2.4rem;
+  }
+
+  .hero-right {
+    flex: none;
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-card {
+    padding: 1.5rem 1.25rem;
+  }
+
+  .hero-title {
+    font-size: 2rem;
+  }
+
+  .hero-right {
+    display: none;
+  }
+
+  .hero-cta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hero-stats {
+    gap: 0.6rem;
+  }
 }
 </style>

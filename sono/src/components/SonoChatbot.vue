@@ -1182,6 +1182,35 @@ onMounted(() => {
   .chat-messages {
     height: 280px;
   }
+
+  .message-content {
+    max-width: 88%;
+  }
+
+  .mood-btn {
+    padding: 0.55rem 0.9rem;
+    font-size: 0.88rem;
+  }
+
+  .clarification-chip {
+    padding: 0.55rem 0.9rem;
+    font-size: 0.88rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .chatbot-page {
+    padding: 1.2rem 0.75rem 2rem;
+  }
+
+  .message-content {
+    max-width: 92%;
+    font-size: 0.88rem;
+  }
+
+  .mood-btn {
+    padding: 0.6rem 0.85rem;
+  }
 }
 </style>
 

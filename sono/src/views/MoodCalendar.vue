@@ -789,7 +789,55 @@ function goDiscover(entry) {
   .calendar-body { padding: 1.5rem 1rem 2rem; }
   .calendar-cell { min-height: 58px; padding: 0.45rem 0.35rem; }
   .mood-label { display: none; }
-  .month-nav h2 { font-size: 1rem; min-width: 160px; }
+  .month-nav h2 { font-size: 1rem; min-width: 140px; }
   .title { font-size: 2rem; }
+
+  .calendar-header {
+    flex-direction: row;
+    gap: 0.75rem;
+  }
+
+  .stat-card {
+    min-width: 0;
+    flex: 1 1 calc(33% - 0.75rem);
+    padding: 1rem 0.75rem;
+  }
+
+  .stat-card .value {
+    font-size: 1.8rem;
+  }
+
+  .stat-card .label {
+    font-size: 0.68rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .calendar-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .stat-card {
+    flex: none;
+    max-width: 100%;
+  }
+
+  .month-nav h2 {
+    min-width: 120px;
+    font-size: 0.95rem;
+  }
+
+  .weekday {
+    font-size: 0.65rem;
+  }
+
+  .day-num {
+    font-size: 0.75rem;
+  }
+
+  .calendar-cell {
+    min-height: 48px;
+  }
 }
 </style>

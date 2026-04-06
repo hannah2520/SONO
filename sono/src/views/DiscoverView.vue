@@ -1118,5 +1118,39 @@ iframe {
   .grid {
     padding: 1.4rem 1.1rem;
   }
+
+  .mode-btn {
+    padding: 0.55rem 0.6rem;
+    font-size: 0.82rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .discover-page {
+    padding: 1.2rem 0.75rem;
+  }
+
+  .content-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .section-title {
+    font-size: 1.2rem;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+    padding: 1rem 0.75rem;
+  }
+
+  .search-bar input {
+    font-size: 0.9rem;
+  }
+
+  .mode-toggle {
+    gap: 0.3rem;
+  }
 }
 </style>
