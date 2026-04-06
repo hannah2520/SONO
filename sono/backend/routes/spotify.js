@@ -11,6 +11,7 @@ const DEFAULT_SCOPES = [
   'user-top-read',
   'user-read-recently-played',
   'user-library-read',
+  'user-library-modify',
 ]
 
 function normalizeReturnToUrl(returnTo) {
@@ -164,6 +165,44 @@ router.post('/logout', (req, res) => {
 /* -----------------------------
    SPOTIFY FETCH WITH 429 HANDLING
 ----------------------------- */
+
+async function refreshAccessToken(req) {
+  const refreshToken = req.session.spotifyRefreshToken
+  if (!refreshToken) throw new Error('No refresh token available — please reconnect Spotify')
+
+  const basicAuth = Buffer.from(
+    `${process.env.SPOTIFY_CLIENT_ID || ''}:${process.env.SPOTIFY_CLIENT_SECRET || ''}`,
+  ).toString('base64')
+
+  const response = await fetch(`${SPOTIFY_ACCOUNTS_URL}/api/token`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${basicAuth}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken }).toString(),
+  })
+
+  const data = await response.json().catch(() => null)
+  if (!response.ok || !data?.access_token) {
+    throw new Error('Token refresh failed — please reconnect Spotify')
+  }
+
+  req.session.spotifyToken = data.access_token
+  req.session.spotifyTokenExpiresAt = Date.now() + Number(data.expires_in || 3600) * 1000
+  if (data.refresh_token) req.session.spotifyRefreshToken = data.refresh_token
+
+  return data.access_token
+}
+
+async function getValidToken(req) {
+  const expiresAt = req.session.spotifyTokenExpiresAt || 0
+  // Refresh 60s before expiry
+  if (Date.now() > expiresAt - 60_000) {
+    return refreshAccessToken(req)
+  }
+  return req.session.spotifyToken
+}
 
 async function spotifyFetchJson(url, token) {
   const response = await fetch(url, {
@@ -422,11 +461,11 @@ async function searchTracksSafely(token, query, taste) {
 
 router.get('/search', async (req, res) => {
   try {
-    const token = req.session.spotifyToken
-
-    if (!token) {
+    if (!req.session.spotifyToken) {
       return res.status(401).json({ error: 'Not authenticated with Spotify' })
     }
+
+    const token = await getValidToken(req)
 
     const query = String(req.query.q || '').trim()
 
@@ -466,17 +505,54 @@ router.get('/search', async (req, res) => {
 })
 
 /* -----------------------------
+   SAVE TRACK ROUTE
+----------------------------- */
+
+router.put('/save', async (req, res) => {
+  try {
+    if (!req.session.spotifyToken) {
+      return res.status(401).json({ error: 'Not authenticated with Spotify' })
+    }
+
+    const token = await getValidToken(req)
+    const trackId = String(req.body.trackId || '').trim()
+
+    if (!trackId) {
+      return res.status(400).json({ error: 'trackId required' })
+    }
+
+    const response = await fetch(`https://api.spotify.com/v1/me/tracks`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ids: [trackId] }),
+    })
+
+    if (!response.ok) {
+      const body = await response.text()
+      throw new Error(`Spotify save failed (${response.status}): ${body}`)
+    }
+
+    res.json({ ok: true })
+  } catch (error) {
+    console.error('Save track error:', error.message)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+/* -----------------------------
    SIMILAR ARTIST ROUTE
 ----------------------------- */
 
 router.get('/similar', async (req, res) => {
   try {
-    const token = req.session.spotifyToken
-
-    if (!token) {
+    if (!req.session.spotifyToken) {
       return res.status(401).json({ error: 'Not authenticated with Spotify' })
     }
 
+    const token = await getValidToken(req)
     const artistName = String(req.query.artist || '').trim()
 
     if (!artistName) {

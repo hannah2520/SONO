@@ -26,9 +26,46 @@ function getOpenAIClient() {
   return openai
 }
 
+async function getValidSpotifyToken(req) {
+  const token = req.session?.spotifyToken
+  if (!token) return null
+
+  const expiresAt = req.session.spotifyTokenExpiresAt || 0
+  if (Date.now() <= expiresAt - 60_000) return token
+
+  const refreshToken = req.session.spotifyRefreshToken
+  if (!refreshToken) return null
+
+  try {
+    const basicAuth = Buffer.from(
+      `${process.env.SPOTIFY_CLIENT_ID || ''}:${process.env.SPOTIFY_CLIENT_SECRET || ''}`,
+    ).toString('base64')
+
+    const response = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${basicAuth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken }).toString(),
+    })
+
+    const data = await response.json().catch(() => null)
+    if (!response.ok || !data?.access_token) return token // fall back to old token
+
+    req.session.spotifyToken = data.access_token
+    req.session.spotifyTokenExpiresAt = Date.now() + Number(data.expires_in || 3600) * 1000
+    if (data.refresh_token) req.session.spotifyRefreshToken = data.refresh_token
+
+    return data.access_token
+  } catch {
+    return token
+  }
+}
+
 router.post('/stream', async (req, res) => {
   const { messages, context, auth } = req.body
-  const spotifyToken = req.session?.spotifyToken || null
+  const spotifyToken = await getValidSpotifyToken(req)
   const chatContext = normalizeChatContext(context, auth)
 
   if (!messages || !Array.isArray(messages)) {

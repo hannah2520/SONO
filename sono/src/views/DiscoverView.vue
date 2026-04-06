@@ -62,7 +62,14 @@
         <article v-for="(item, i) in recommendations" :key="i" class="tile">
           <div class="cover-wrap">
             <img :src="item.image" :alt="item.title + ' cover'" />
-
+            <button
+              class="heart-btn"
+              :class="{ saved: savedTracks.has(item.track_id) }"
+              @click.stop="saveTrack(item)"
+              :title="savedTracks.has(item.track_id) ? 'Saved to Spotify' : 'Save to Spotify'"
+            >
+              {{ savedTracks.has(item.track_id) ? '♥' : '♡' }}
+            </button>
           </div>
           <a class="title">{{ item.title }}</a>
           <p class="artist">{{ displayArtistNames(item) }}</p>
@@ -80,7 +87,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
+import { incrementDiscoverUses } from '@/composables/useAchievements'
 import { useRoute } from 'vue-router'
 import { useMoodRecommendations } from '@/composables/useMoodRecommendations'
 
@@ -102,7 +110,30 @@ const tracks = ref([])
 const recommendations = ref([])
 const rankingMode = ref('mood')
 const lastAiQueries = ref([])
+const savedTracks = reactive(new Set(JSON.parse(localStorage.getItem('sono-saved-tracks') || '[]')))
 let batchIndex = 0
+
+async function saveTrack(item) {
+  if (savedTracks.has(item.track_id)) return
+
+  try {
+    const res = await fetch(`${API_URL}/api/spotify/save`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ trackId: item.track_id }),
+    })
+    if (!res.ok) throw new Error('Save failed')
+
+    savedTracks.add(item.track_id)
+    const saved = Array.from(savedTracks)
+    localStorage.setItem('sono-saved-tracks', JSON.stringify(saved))
+    // Dispatch event so achievements can react
+    window.dispatchEvent(new CustomEvent('sono-track-saved', { detail: { count: saved.length } }))
+  } catch (err) {
+    console.error('Failed to save track:', err)
+  }
+}
 function buildTrackKey(track) {
   const title = String(track?.title || track?.name || '')
     .trim()
@@ -383,6 +414,8 @@ async function searchSpotify(options = {}) {
     if (!res.ok) throw new Error('Spotify search failed')
     const data = await res.json()
     applyTrackResults(data.tracks)
+    const discoverUses = incrementDiscoverUses()
+    window.dispatchEvent(new CustomEvent('sono-discover-used', { detail: { count: discoverUses } }))
   } catch (err) {
     console.error('Error searching Spotify:', err)
   } finally {
@@ -945,12 +978,44 @@ onMounted(async () => {
   border-radius: 1rem;
   margin-bottom: 0.8rem;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  position: relative;
 }
 
 .cover-wrap img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.heart-btn {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.5rem;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  border: none;
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+  line-height: 1;
+}
+
+.heart-btn:hover {
+  background: rgba(0, 0, 0, 0.75);
+  color: #f584b1;
+  transform: scale(1.1);
+}
+
+.heart-btn.saved {
+  color: #f584b1;
+  background: rgba(245, 132, 177, 0.25);
 }
 
 .title {

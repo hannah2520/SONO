@@ -192,6 +192,7 @@ import { ref, nextTick, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMoodRecommendations } from '@/composables/useMoodRecommendations'
 import { useMoodLog } from '@/composables/useMoodLog'
+import { incrementAriaUses } from '@/composables/useAchievements'
 
 const router = useRouter()
 const { setMoodRecommendations } = useMoodRecommendations()
@@ -559,6 +560,8 @@ const sendMessage = async (textOverride = null) => {
             }
             // Auto-log today's mood from the chatbot conversation
             logMoodForToday(payload.mood, payload.genres || [])
+            const ariaUses = incrementAriaUses()
+            window.dispatchEvent(new CustomEvent('sono-aria-used', { detail: { count: ariaUses } }))
             detectedMood.value = payload.mood || ''
             detectedSearchTerm.value =
               payload.queryLabel ||

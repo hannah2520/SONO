@@ -16,9 +16,9 @@
         <p class="value">{{ streak }}</p>
         <p class="label">Day Streak 🔥</p>
       </div>
-      <div class="stat-card moods">
-        <p class="value">{{ uniqueMoods }}</p>
-        <p class="label">Moods Explored</p>
+      <div class="stat-card achievements-stat" @click="scrollToAchievements">
+        <p class="value">{{ unlockedCount }}</p>
+        <p class="label">Achievements 🏆</p>
       </div>
     </div>
 
@@ -68,6 +68,44 @@
     <p v-if="activeDays === 0" class="empty-hint">
       Chat with SONO to automatically log your mood here each day.
     </p>
+
+    <!-- Achievements -->
+    <div class="achievements-section" id="achievements">
+
+      <!-- Your Achievements (earned only) -->
+      <template v-if="earnedAchievements.length">
+        <h2 class="achievements-title">YOUR ACHIEVEMENTS</h2>
+        <div class="achievements-grid earned-grid">
+          <div
+            v-for="a in earnedAchievements"
+            :key="a.id"
+            class="achievement-card unlocked"
+          >
+            <span class="achievement-icon">{{ a.icon }}</span>
+            <p class="achievement-name">{{ a.title }}</p>
+            <p class="achievement-desc">{{ a.description }}</p>
+            <span class="achievement-badge">Unlocked</span>
+          </div>
+        </div>
+        <div class="achievements-divider"></div>
+      </template>
+
+      <!-- All achievements -->
+      <h2 class="achievements-title">ALL ACHIEVEMENTS</h2>
+      <div class="achievements-grid">
+        <div
+          v-for="a in allAchievements"
+          :key="a.id"
+          :class="['achievement-card', { unlocked: a.unlocked }]"
+        >
+          <span class="achievement-icon">{{ a.icon }}</span>
+          <p class="achievement-name">{{ a.title }}</p>
+          <p class="achievement-desc">{{ a.description }}</p>
+          <span v-if="a.unlocked" class="achievement-badge">Unlocked</span>
+          <span v-else class="achievement-locked">Locked</span>
+        </div>
+      </div>
+    </div>
   </section>
 </template>
 
@@ -76,10 +114,19 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMoodLog } from '@/composables/useMoodLog'
 import { useMoodRecommendations } from '@/composables/useMoodRecommendations'
+import { useAchievements } from '@/composables/useAchievements'
 
 const router = useRouter()
 const { getEntryForDate, getActiveDaysInMonth, getCurrentStreak, getUniqueMoodsInMonth } = useMoodLog()
 const { setMoodRecommendations } = useMoodRecommendations()
+const { getAllAchievements, getUnlockedCount } = useAchievements()
+const allAchievements = computed(() => getAllAchievements())
+const earnedAchievements = computed(() => allAchievements.value.filter(a => a.unlocked))
+const unlockedCount = computed(() => getUnlockedCount())
+
+function scrollToAchievements() {
+  document.getElementById('achievements')?.scrollIntoView({ behavior: 'smooth' })
+}
 
 const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -321,21 +368,30 @@ function goDiscover(entry) {
   border-radius: 3px 3px 0 0;
 }
 
-.active-days::before { background: linear-gradient(90deg, var(--euphoric), var(--confident)); }
-.streak::before      { background: linear-gradient(90deg, var(--flirty), var(--euphoric)); }
-.moods::before       { background: linear-gradient(90deg, var(--melancholy), var(--serene)); }
+.active-days::before       { background: linear-gradient(90deg, var(--euphoric), var(--confident)); }
+.streak::before            { background: linear-gradient(90deg, var(--flirty), var(--euphoric)); }
+.achievements-stat::before { background: linear-gradient(90deg, var(--confident), var(--flirty)); }
+
+.achievements-stat {
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.achievements-stat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 36px rgba(0,0,0,0.3);
+}
 
 .stat-card .value {
   font-size: 2.4rem;
   font-weight: 900;
   margin-bottom: 0.2rem;
-  color: #fff;
+  color: #111;
   line-height: 1;
 }
 
 .stat-card .label {
   font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: #333;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-weight: 600;
@@ -371,15 +427,15 @@ function goDiscover(entry) {
 .month-nav h2 {
   font-size: 1.2rem;
   font-weight: 700;
-  color: #fff;
+  color: #111;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   min-width: 220px;
 }
 
 .nav-btn {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.15);
   border-radius: 50%;
   width: 36px;
   height: 36px;
@@ -387,15 +443,15 @@ function goDiscover(entry) {
   align-items: center;
   justify-content: center;
   font-size: 1.3rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: #333;
   cursor: pointer;
   line-height: 1;
   transition: background 0.15s, color 0.15s;
 }
 
 .nav-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.16);
-  color: #fff;
+  background: rgba(0, 0, 0, 0.16);
+  color: #111;
 }
 
 .nav-btn:disabled { opacity: 0.25; cursor: default; }
@@ -411,7 +467,7 @@ function goDiscover(entry) {
 
 .weekday {
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.35);
+  color: #444;
   font-size: 0.72rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -428,7 +484,7 @@ function goDiscover(entry) {
   align-items: flex-start;
   justify-content: flex-start;
   padding: 0.6rem 0.55rem 0.5rem;
-  color: rgba(255, 255, 255, 0.75);
+  color: #111;
   font-weight: 500;
   transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
   position: relative;
@@ -467,19 +523,19 @@ function goDiscover(entry) {
 .day-num {
   font-size: 0.82rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.8);
+  color: #111;
   line-height: 1;
   margin-bottom: 0.35rem;
 }
 
 .calendar-cell.today .day-num {
-  color: var(--euphoric);
+  color: var(--confident);
 }
 
 .mood-label {
   font-size: 0.6rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.75);
+  color: #222;
   line-height: 1.3;
   text-align: left;
   max-width: 100%;
@@ -615,6 +671,115 @@ function goDiscover(entry) {
   font-size: 0.88rem;
   color: rgba(255, 255, 255, 0.4);
   font-style: italic;
+}
+
+/* ============================================================
+   ACHIEVEMENTS
+   ============================================================ */
+.achievements-section {
+  margin-top: 2.5rem;
+  width: 100%;
+  max-width: 860px;
+}
+
+.achievements-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 1px 8px rgba(0,0,0,0.3);
+  margin-bottom: 1.2rem;
+  text-align: left;
+}
+
+.achievements-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.85rem;
+}
+
+.achievement-card {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 1rem;
+  padding: 1.3rem 1rem;
+  text-align: center;
+  opacity: 0.5;
+  filter: grayscale(70%);
+  transition: opacity 0.3s, filter 0.3s, transform 0.2s, box-shadow 0.2s;
+  position: relative;
+}
+
+.achievement-card.unlocked {
+  opacity: 1;
+  filter: none;
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(139, 85, 243, 0.35);
+  box-shadow: 0 4px 20px rgba(139, 85, 243, 0.18);
+}
+
+.achievement-card.unlocked:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 28px rgba(139, 85, 243, 0.28);
+}
+
+.achievement-icon {
+  font-size: 2.2rem;
+  display: block;
+  margin-bottom: 0.55rem;
+}
+
+.achievement-name {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #111;
+  margin: 0 0 0.3rem;
+}
+
+.achievement-desc {
+  font-size: 0.75rem;
+  color: #555;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.earned-grid {
+  margin-bottom: 0.5rem;
+}
+
+.achievements-divider {
+  width: 100%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 1.75rem 0;
+}
+
+.achievement-locked {
+  display: inline-block;
+  margin-top: 0.6rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(0,0,0,0.08);
+  color: #999;
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+}
+
+.achievement-badge {
+  display: inline-block;
+  margin-top: 0.65rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, var(--confident), var(--euphoric));
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
 }
 
 /* ============================================================

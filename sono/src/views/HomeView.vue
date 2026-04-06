@@ -26,9 +26,9 @@
 
 
           <div class="hero-stats">
-            <div class="stat"><strong>156</strong><span>New songs / month</span></div>
-            <div class="stat"><strong>19</strong><span>Active days</span></div>
-            <div class="stat"><strong>3</strong><span>Achievements</span></div>
+            <div class="stat"><strong>{{ activeDaysThisMonth }}</strong><span>Active days</span></div>
+            <div class="stat"><strong>{{ currentStreak }}</strong><span>Day streak 🔥</span></div>
+            <div class="stat"><strong>{{ getUnlockedCount() }}</strong><span>Achievements</span></div>
           </div>
         </div>
 
@@ -46,9 +46,18 @@
 
 <script setup>
 import { RouterLink } from 'vue-router'
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useMoodLog } from '@/composables/useMoodLog'
+import { useAchievements } from '@/composables/useAchievements'
 
 const API_URL = import.meta.env.VITE_API_URL
+
+const { getActiveDaysInMonth, getCurrentStreak, getUniqueMoodsInMonth } = useMoodLog()
+const { getUnlockedCount } = useAchievements()
+const now = new Date()
+const activeDaysThisMonth = computed(() => getActiveDaysInMonth(now.getFullYear(), now.getMonth()))
+const currentStreak = computed(() => getCurrentStreak())
+const uniqueMoodsThisMonth = computed(() => getUniqueMoodsInMonth(now.getFullYear(), now.getMonth()))
 
 const loading = ref(true)
 const connected = ref(false)

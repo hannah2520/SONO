@@ -175,7 +175,8 @@ onMounted(() => {
 }
 
 .active {
-  box-shadow: 0 0 12px rgba(255,255,255,0.4);
+  color: #fff;
+  text-shadow: 0 0 10px rgba(255,255,255,0.5);
 }
 
 .action-section {
