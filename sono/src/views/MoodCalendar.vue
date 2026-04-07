@@ -117,7 +117,7 @@ import { useMoodRecommendations } from '@/composables/useMoodRecommendations'
 import { useAchievements } from '@/composables/useAchievements'
 
 const router = useRouter()
-const { getEntryForDate, getActiveDaysInMonth, getCurrentStreak, getUniqueMoodsInMonth } = useMoodLog()
+const { getEntryForDate, getActiveDaysInMonth, getCurrentStreak } = useMoodLog()
 const { setMoodRecommendations } = useMoodRecommendations()
 const { getAllAchievements, getUnlockedCount } = useAchievements()
 const allAchievements = computed(() => getAllAchievements())
@@ -150,7 +150,7 @@ const isCurrentMonth = computed(
 
 const activeDays = computed(() => getActiveDaysInMonth(viewYear.value, viewMonth.value))
 const streak = computed(() => getCurrentStreak())
-const uniqueMoods = computed(() => getUniqueMoodsInMonth(viewYear.value, viewMonth.value))
+// const uniqueMoods = computed(() => getUniqueMoodsInMonth(viewYear.value, viewMonth.value))
 
 const calendarCells = computed(() => {
   const firstDay = new Date(viewYear.value, viewMonth.value, 1).getDay()
@@ -310,13 +310,13 @@ function goDiscover(entry) {
   font-weight: 900;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #fff;
+  color: var(--confident);
   margin-bottom: 0.7rem;
 }
 
 .mood-calendar h6 {
   font-size: 1rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--bold);
   margin-bottom: 2.5rem;
   max-width: 480px;
   font-weight: 400;
@@ -687,7 +687,7 @@ function goDiscover(entry) {
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #fff;
+  color: var(--confident);
   text-shadow: 0 1px 8px rgba(0,0,0,0.3);
   margin-bottom: 1.2rem;
   text-align: left;
@@ -701,6 +701,7 @@ function goDiscover(entry) {
 
 .achievement-card {
   background: rgba(255, 255, 255, 0.82);
+  color: #111827;
   backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 1rem;

@@ -276,7 +276,7 @@ function sanitizeDisplayText(value, fallback, maxLength = 100) {
     .trim()
 
   const looksLikeCode =
-    /^\s*[\[{]/.test(cleaned) ||
+    /^\s*[[{]/.test(cleaned) ||
     /external_urls|spotify:|href"|https:\/\/api\.spotify\.com|open\.spotify\.com/i.test(cleaned) ||
     /(function\s*\(|=>|\bconst\b|\blet\b|\bimport\b|\bexport\b|<script|<template|\{\s*"\w+"\s*:)/i.test(
       cleaned,
@@ -892,7 +892,7 @@ onMounted(async () => {
 .mode-btn {
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
+  color: #111827;
   border-radius: 999px;
   padding: 0.45rem 0.75rem;
   font-size: 0.78rem;
@@ -904,6 +904,7 @@ onMounted(async () => {
 .mode-btn.active {
   background: linear-gradient(120deg, #7f5af0, #a78bfa);
   border-color: transparent;
+  color: #ffffff;
 }
 
 .refresh-btn:disabled {

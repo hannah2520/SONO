@@ -134,6 +134,7 @@ const songs = [
 
 .playlist-table {
   background: #fff;
+  color: #111827;
   border-radius: 10px;
   overflow-x: auto;
   padding: 0.6rem;
@@ -182,6 +183,7 @@ td {
 .player-bar {
   margin-top: 1rem;
   background: #fff;
+  color: #111827;
   padding: 0.75rem 1rem;
   border-radius: 20px;
   display: flex;

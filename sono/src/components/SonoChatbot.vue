@@ -1027,6 +1027,7 @@ onMounted(() => {
   overflow-y: auto;
   padding: 1.2rem 1.5rem 1.1rem;
   background: #f8fafc;
+  color: #111827;
 }
 
 .message {
@@ -1093,6 +1094,7 @@ onMounted(() => {
   display: flex;
   padding: 0.85rem 1.5rem 0.95rem;
   background: #ffffff;
+  color: #111827;
   border-top: 1px solid #e5e7eb;
   gap: 0.6rem;
 }
@@ -1103,6 +1105,7 @@ onMounted(() => {
   border: 1px solid #e5e7eb;
   border-radius: 999px;
   font-size: 0.9rem;
+  color: #111827;
   outline: none;
 }
 .chat-input:focus {
@@ -1144,6 +1147,7 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   background: #f8fafc;
+  color: #111827;
   border-top: 1px solid #e5e7eb;
 }
 
@@ -1213,7 +1217,6 @@ onMounted(() => {
   }
 }
 </style>
-
 
 
 

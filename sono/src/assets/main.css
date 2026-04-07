@@ -37,6 +37,7 @@ body {
   padding: 0;
   height: 100%;
   /* full viewport */
+  color: var(--bold);
   background: var(--balanced);
 }
 
@@ -67,6 +68,7 @@ a,
 
 h6 {
   font-family: 'Monorail', 'Arial Nova', system-ui, sans-serif;
+
 }
 
 body,
@@ -87,6 +89,7 @@ h5,
 h6 {
   font-family: 'monorail';
   src: url('./monotail-script.regular.otf') format('opentype');
+  color: var(--bold);
 }
 
 @media (hover: hover) {
