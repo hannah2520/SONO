@@ -43,6 +43,11 @@
           Logout
         </button>
       </div>
+
+      <!-- Profile icon -->
+      <RouterLink to="/profile" class="profile-icon-link" :class="{ active: isActive('/profile') }" title="Your Profile">
+        <img :src="avatarDataUrl || '/default-avatar.svg'" alt="Profile" class="nav-avatar" />
+      </RouterLink>
     </div>
 
     <!-- Hamburger button (mobile only) -->
@@ -88,6 +93,9 @@
           <li>
             <RouterLink to="/contact" :class="{ active: isActive('/contact') }" @click="menuOpen = false">Contact</RouterLink>
           </li>
+          <li>
+            <RouterLink to="/profile" :class="{ active: isActive('/profile') }" @click="menuOpen = false">Profile</RouterLink>
+          </li>
         </ul>
 
         <div class="mobile-spotify">
@@ -107,6 +115,7 @@
 <script setup>
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
+import { useUserProfile } from '@/composables/useUserProfile'
 
 const route = useRoute()
 const isActive = (path) => route.path === path
@@ -117,6 +126,7 @@ const loading = ref(true)
 const connected = ref(false)
 const profile = ref(null)
 const menuOpen = ref(false)
+const { avatarDataUrl } = useUserProfile()
 
 // Close drawer and unlock scroll on route change
 watch(() => route.path, () => { menuOpen.value = false })
@@ -284,6 +294,30 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 140px;
+}
+
+.profile-icon-link {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.profile-icon-link:hover,
+.profile-icon-link.active {
+  transform: scale(1.08);
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.5);
+  border-radius: 50%;
+}
+
+.nav-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255,255,255,0.25);
+  background: white;
 }
 
 /* ── Hamburger (hidden on desktop) ── */
