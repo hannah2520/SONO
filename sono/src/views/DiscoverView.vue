@@ -13,10 +13,14 @@
 
       <!-- Login prompt if not authenticated -->
       <div v-if="!loading && !connected" class="login-prompt">
-        <button @click="connectSpotify">
-          <img src="/connectSpotifyButton.svg" />
+        <p class="login-prompt-title">Connect Spotify to see recommendations</p>
+        <p class="login-prompt-sub">Link your account to get personalized tracks based on your mood.</p>
+        <button class="spotify-connect-btn" @click="connectSpotify">
+          <svg class="spotify-icon" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+          </svg>
+          Connect Spotify
         </button>
-        <p>Please log in to see recommendations.</p>
       </div>
 
       <!-- Search bar -->
@@ -919,7 +923,7 @@ onMounted(async () => {
   align-items: center;
   gap: 0.75rem;
   margin: 2.2rem 0;
-  padding: 2rem 1.5rem;
+  padding: 2.5rem 2rem;
   border-radius: 1.5rem;
   background: linear-gradient(
     135deg,
@@ -929,11 +933,49 @@ onMounted(async () => {
   );
   backdrop-filter: blur(14px) saturate(130%);
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26);
+  text-align: center;
 }
 
-.login-prompt p {
-  color: #f5f1ff;
-  font-size: 0.95rem;
+.login-prompt-title {
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.login-prompt-sub {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.9rem;
+  margin: 0 0 0.5rem;
+  max-width: 320px;
+  line-height: 1.5;
+}
+
+.spotify-connect-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  background: linear-gradient(90deg, #1db954, #1ed760);
+  color: white;
+  border: none;
+  padding: 0.75rem 2rem;
+  border-radius: 999px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  box-shadow: 0 6px 18px rgba(30, 215, 96, 0.35);
+}
+
+.spotify-connect-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(30, 215, 96, 0.5);
+}
+
+.spotify-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
 /* Recommendations Grid – glassy container */

@@ -1,29 +1,62 @@
 import express from 'express'
-import { OpenAI } from 'openai'
+import Anthropic from '@anthropic-ai/sdk'
 import process from 'process'
 import fetch from 'node-fetch'
 
 const router = express.Router()
 
-let openai = null
+let anthropic = null
 
-const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini-2024-07-18'
-const OPENAI_TIMEOUT_MS = 20000
+const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-haiku-4-5'
+const CLAUDE_TIMEOUT_MS = 20000
 const SPOTIFY_TIMEOUT_MS = 12000
 const MAX_SEARCH_QUERIES = 5
 
-function getOpenAIClient() {
-  if (!openai) {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY environment variable is missing')
+const SONO_RESPONSE_TOOL = {
+  name: 'sono_chat_response',
+  description: 'Return a structured mood-based music recommendation response',
+  input_schema: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      reply: { type: 'string' },
+      mood: { type: 'string' },
+      genres: { type: 'array', items: { type: 'string' } },
+      queryLabel: { type: 'string' },
+      searchQueries: { type: 'array', items: { type: 'string' } },
+      energy: { type: 'string' },
+      intent: { type: 'string' },
+      discoveryPreference: { type: 'string' },
+      responseType: { type: 'string' },
+      needsClarification: { type: 'boolean' },
+      clarificationQuestion: { type: 'string' },
+      artistSeed: { type: 'array', items: { type: 'string' } },
+    },
+    required: [
+      'reply',
+      'mood',
+      'genres',
+      'queryLabel',
+      'searchQueries',
+      'energy',
+      'intent',
+      'discoveryPreference',
+      'responseType',
+      'needsClarification',
+      'clarificationQuestion',
+      'artistSeed',
+    ],
+  },
+}
+
+function getAnthropicClient() {
+  if (!anthropic) {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      throw new Error('ANTHROPIC_API_KEY environment variable is missing')
     }
-
-    openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    })
+    anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   }
-
-  return openai
+  return anthropic
 }
 
 async function getValidSpotifyToken(req) {
@@ -51,7 +84,7 @@ async function getValidSpotifyToken(req) {
     })
 
     const data = await response.json().catch(() => null)
-    if (!response.ok || !data?.access_token) return token // fall back to old token
+    if (!response.ok || !data?.access_token) return token
 
     req.session.spotifyToken = data.access_token
     req.session.spotifyTokenExpiresAt = Date.now() + Number(data.expires_in || 3600) * 1000
@@ -77,75 +110,28 @@ router.post('/stream', async (req, res) => {
   res.setHeader('Connection', 'keep-alive')
 
   try {
-    const client = getOpenAIClient()
+    const client = getAnthropicClient()
     const tasteSummary = spotifyToken ? await getSpotifyTasteSummary(spotifyToken) : null
 
-    const completion = await withTimeout(
-      client.chat.completions.create({
-        model: OPENAI_MODEL,
-        temperature: 0.8,
-        max_completion_tokens: 700,
-        response_format: {
-          type: 'json_schema',
-          json_schema: {
-            name: 'sono_chat_response',
-            strict: true,
-            schema: {
-              type: 'object',
-              additionalProperties: false,
-              properties: {
-                reply: { type: 'string' },
-                mood: { type: 'string' },
-                genres: {
-                  type: 'array',
-                  items: { type: 'string' },
-                  maxItems: 6,
-                },
-                queryLabel: { type: 'string' },
-                searchQueries: {
-                  type: 'array',
-                  items: { type: 'string' },
-                  maxItems: 8,
-                },
-                energy: { type: 'string' },
-                intent: { type: 'string' },
-                discoveryPreference: { type: 'string' },
-                responseType: { type: 'string' },
-                needsClarification: { type: 'boolean' },
-                clarificationQuestion: { type: 'string' },
-                artistSeed: {
-                  type: 'array',
-                  items: { type: 'string' },
-                  maxItems: 3,
-                },
-              },
-              required: [
-                'reply',
-                'mood',
-                'genres',
-                'queryLabel',
-                'searchQueries',
-                'energy',
-                'intent',
-                'discoveryPreference',
-                'responseType',
-                'needsClarification',
-                'clarificationQuestion',
-                'artistSeed',
-              ],
-            },
-          },
-        },
-        messages: buildOpenAIMessages(messages, tasteSummary, chatContext),
+    const systemPrompt = buildSystemPrompt(tasteSummary, chatContext)
+    const userMessages = buildClaudeMessages(messages)
+
+    const response = await withTimeout(
+      client.messages.create({
+        model: CLAUDE_MODEL,
+        max_tokens: 1024,
+        system: systemPrompt,
+        tools: [SONO_RESPONSE_TOOL],
+        tool_choice: { type: 'tool', name: 'sono_chat_response' },
+        messages: userMessages,
       }),
-      OPENAI_TIMEOUT_MS,
-      'OpenAI request timed out',
+      CLAUDE_TIMEOUT_MS,
+      'Claude request timed out',
     )
 
-    const message = completion.choices?.[0]?.message
-    const refusal = message?.refusal
+    const toolUseBlock = response.content.find((block) => block.type === 'tool_use')
 
-    if (refusal) {
+    if (!toolUseBlock) {
       const safeReply =
         'I can help with music moods and recommendations, but I could not answer that request.'
 
@@ -168,7 +154,7 @@ router.post('/stream', async (req, res) => {
       return res.end()
     }
 
-    const parsed = parseStructuredPayload(message?.content)
+    const parsed = toolUseBlock.input
     const payload = normalizePayload(parsed, chatContext)
 
     await writeTextResponse(res, payload.reply)
@@ -217,7 +203,7 @@ router.post('/stream', async (req, res) => {
   }
 })
 
-function buildOpenAIMessages(messages, tasteSummary, chatContext) {
+function buildSystemPrompt(tasteSummary, chatContext) {
   const systemParts = [
     'You are SONO, a mood-based music discovery AI.',
     'Your job is to understand the user emotionally and turn what they say into strong music retrieval queries.',
@@ -273,17 +259,15 @@ function buildOpenAIMessages(messages, tasteSummary, chatContext) {
     systemParts.push(`Structured frontend context: ${contextSummary}`)
   }
 
-  return [
-    {
-      role: 'system',
-      content: systemParts.join(' '),
-    },
-    ...messages.map((message) => ({
-      role: message.role,
-      content:
-        typeof message.content === 'string' ? message.content : String(message.content || ''),
-    })),
-  ]
+  return systemParts.join(' ')
+}
+
+function buildClaudeMessages(messages) {
+  return messages.map((message) => ({
+    role: message.role,
+    content:
+      typeof message.content === 'string' ? message.content : String(message.content || ''),
+  }))
 }
 
 async function getSpotifyTasteSummary(token) {
@@ -345,26 +329,6 @@ async function getSpotifyTasteSummary(token) {
     console.error('Failed to build Spotify taste summary:', error)
     return null
   }
-}
-
-function parseStructuredPayload(content) {
-  if (typeof content === 'string') {
-    return JSON.parse(content)
-  }
-
-  if (Array.isArray(content)) {
-    const text = content
-      .map((part) => {
-        if (typeof part === 'string') return part
-        if (part?.type === 'text') return part.text || ''
-        return ''
-      })
-      .join('')
-
-    return JSON.parse(text)
-  }
-
-  throw new Error('Structured response was empty')
 }
 
 function normalizePayload(payload, chatContext = null) {
@@ -740,7 +704,7 @@ function unique(items) {
     const lower = key.toLowerCase()
     if (seen.has(lower)) continue
     seen.add(lower)
-    out.push(key)
+    out.push(item)
   }
 
   return out
