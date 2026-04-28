@@ -6,7 +6,7 @@
       <section class="identity-card">
         <div class="avatar-wrap">
           <img
-            :src="avatarDataUrl || '/default-avatar.svg'"
+            :src="avatarDataUrl || `${BASE_URL}default-avatar.svg`"
             alt="Profile avatar"
             class="avatar-img"
           />
@@ -129,6 +129,7 @@ const { getAllAchievements, getUnlockedCount } = useAchievements()
 const { getCurrentStreak } = useMoodLog()
 
 const API_URL = import.meta.env.VITE_API_URL
+const BASE_URL = import.meta.env.BASE_URL
 
 const spotifyProfile = ref(null)
 const editingName = ref(false)

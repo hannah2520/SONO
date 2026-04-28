@@ -26,27 +26,29 @@
       <li><RouterLink to="/contact" :class="{ active: isActive('/contact') }">Contact</RouterLink></li>
     </ul>
 
-    <div class="action-section">
-      <button
-        v-if="!loading && !connected"
-        class="spotify-btn"
-        @click="connectSpotify"
-      >
-        Connect Spotify
-      </button>
-
-      <div v-else-if="!loading && connected" class="spotify-status">
-        <span class="spotify-user">
-          {{ profile?.display_name || profile?.email || 'Spotify User' }}
-        </span>
-        <button class="spotify-btn" @click="logoutSpotify">
-          Logout
+    <!-- Right side: Spotify status + profile icon always grouped together -->
+    <div class="right-section">
+      <div class="action-section">
+        <button
+          v-if="!loading && !connected"
+          class="spotify-btn"
+          @click="connectSpotify"
+        >
+          Connect Spotify
         </button>
+
+        <div v-else-if="!loading && connected" class="spotify-status">
+          <span class="spotify-user">
+            {{ profile?.display_name || profile?.email || 'Spotify User' }}
+          </span>
+          <button class="spotify-btn" @click="logoutSpotify">
+            Logout
+          </button>
+        </div>
       </div>
 
-      <!-- Profile icon -->
       <RouterLink to="/profile" class="profile-icon-link" :class="{ active: isActive('/profile') }" title="Your Profile">
-        <img :src="avatarDataUrl || '/default-avatar.svg'" alt="Profile" class="nav-avatar" />
+        <img :src="avatarDataUrl || `${BASE_URL}default-avatar.svg`" alt="Profile" class="nav-avatar" />
       </RouterLink>
     </div>
 
@@ -121,6 +123,7 @@ const route = useRoute()
 const isActive = (path) => route.path === path
 
 const API_URL = import.meta.env.VITE_API_URL
+const BASE_URL = import.meta.env.BASE_URL
 
 const loading = ref(true)
 const connected = ref(false)
@@ -255,6 +258,12 @@ onMounted(() => {
 .active {
   color: #fff;
   text-shadow: 0 0 10px rgba(255,255,255,0.5);
+}
+
+.right-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
 .action-section {
@@ -491,6 +500,12 @@ onMounted(() => {
   .logo-icon {
     width: 48px;
     height: 48px;
+  }
+
+  /* right-section stays visible but only shows the avatar (action-section is hidden) */
+  .right-section {
+    gap: 0;
+    margin-left: auto;
   }
 }
 </style>
