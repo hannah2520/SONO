@@ -25,6 +25,7 @@ const SONO_RESPONSE_TOOL = {
       queryLabel: { type: 'string' },
       searchQueries: { type: 'array', items: { type: 'string' } },
       energy: { type: 'string' },
+      valence: { type: 'number' },
       intent: { type: 'string' },
       discoveryPreference: { type: 'string' },
       responseType: { type: 'string' },
@@ -39,6 +40,7 @@ const SONO_RESPONSE_TOOL = {
       'queryLabel',
       'searchQueries',
       'energy',
+      'valence',
       'intent',
       'discoveryPreference',
       'responseType',
@@ -167,6 +169,7 @@ router.post('/stream', async (req, res) => {
         queryLabel: payload.queryLabel,
         searchQueries: payload.searchQueries,
         energy: payload.energy,
+        valence: payload.valence,
         intent: payload.intent,
         discoveryPreference: payload.discoveryPreference,
         responseType: payload.responseType,
@@ -236,6 +239,10 @@ function buildSystemPrompt(tasteSummary, chatContext) {
     'Set responseType to either "clarification" or "recommendation" only.',
     'If emotional context is weak or conflicting, ask exactly one clear follow-up question, set responseType="clarification", needsClarification=true, and keep clarificationQuestion non-empty.',
     'If context is sufficient, set responseType="recommendation", needsClarification=false, and clarificationQuestion="".',
+    'Set valence to a float 0.0–1.0 representing how positive/happy the music should feel: grief/devastated=0.05, very sad=0.15, sad=0.25, melancholic=0.30, down=0.35, neutral=0.45, calm=0.50, content=0.60, warm=0.65, hopeful=0.70, happy=0.78, joyful=0.85, euphoric=0.95.',
+    'When intent is "shift" (user wants to feel better), increase valence by 0.15–0.25 above the raw mood.',
+    'When intent is "regulate", keep valence between 0.40 and 0.60.',
+    'When intent is "focus", keep valence between 0.35 and 0.55.',
     'Respect user intent values like match, shift, discover, focus, regulate.',
     'Respect discoveryPreference values like familiar, mixed, hidden_gems when forming searchQueries.',
     'When discoveryPreference is hidden_gems, avoid obvious mainstream-only phrasing.',
@@ -400,6 +407,11 @@ function normalizePayload(payload, chatContext = null) {
     ? unique(payload.artistSeed.map((a) => String(a || '').trim()).filter(Boolean)).slice(0, 3)
     : []
 
+  const rawValence = typeof payload?.valence === 'number' ? payload.valence : null
+  const safeValence = rawValence !== null
+    ? Math.min(1, Math.max(0, rawValence))
+    : null
+
   return {
     reply: safeReply,
     mood: safeMood,
@@ -407,6 +419,7 @@ function normalizePayload(payload, chatContext = null) {
     queryLabel: safeQueryLabel,
     searchQueries,
     energy: safeEnergy,
+    valence: safeValence,
     intent: safeIntent,
     discoveryPreference: safeDiscoveryPreference,
     responseType,

@@ -221,10 +221,11 @@ const userInput = ref('')
 const loading = ref(false)
 const tracks = ref([])
 const header = ref({ mood: '', genres: [] })
-const detectedMood = ref('') // Track the detected mood for the button
+const detectedMood = ref('')
 const detectedSearchTerm = ref('')
 const detectedSearchQueries = ref([])
 const detectedArtistSeed = ref([])
+const detectedValence = ref(null)
 const responseType = ref('recommendation')
 const needsClarification = ref(false)
 const clarificationQuestion = ref('')
@@ -574,6 +575,7 @@ const sendMessage = async (textOverride = null) => {
             detectedArtistSeed.value = Array.isArray(payload.artistSeed)
               ? payload.artistSeed.filter(Boolean)
               : []
+            detectedValence.value = typeof payload.valence === 'number' ? payload.valence : null
             responseType.value =
               payload.responseType === 'clarification' ? 'clarification' : 'recommendation'
             needsClarification.value =
@@ -637,6 +639,8 @@ const sendMessage = async (textOverride = null) => {
               searchLabel,
               payload.searchQueries || [],
               payload.artistSeed || [],
+              typeof payload.valence === 'number' ? payload.valence : null,
+              payload.energy || null,
             )
           } catch (e) {
             console.error('Failed to parse payload:', e)
@@ -684,7 +688,6 @@ const sendMessage = async (textOverride = null) => {
 }
 
 const viewMoreRecommendations = () => {
-  // Save tracks and mood data to shared state
   setMoodRecommendations(
     tracks.value,
     header.value.mood,
@@ -692,15 +695,15 @@ const viewMoreRecommendations = () => {
     detectedSearchTerm.value || header.value.mood,
     detectedSearchQueries.value,
     detectedArtistSeed.value,
+    detectedValence.value,
+    chatContext.value.energy || null,
   )
-  // Navigate to discover page
   router.push('/discover')
 }
 
 function goToDiscoverWithMood() {
   if (detectedMood.value) {
     const searchTerm = detectedSearchTerm.value || detectedMood.value
-    // Save tracks and mood data to shared state
     setMoodRecommendations(
       tracks.value,
       detectedMood.value,
@@ -708,6 +711,8 @@ function goToDiscoverWithMood() {
       searchTerm,
       detectedSearchQueries.value,
       detectedArtistSeed.value,
+      detectedValence.value,
+      chatContext.value.energy || null,
     )
     // Navigate to discover page with mood and AI search query
     router.push({

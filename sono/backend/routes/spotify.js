@@ -14,6 +14,30 @@ const DEFAULT_SCOPES = [
   'user-library-modify',
 ]
 
+function rankByCount(items) {
+  const counts = new Map()
+  for (const item of items) {
+    const key = String(item || '').trim()
+    if (!key) continue
+    counts.set(key, (counts.get(key) || 0) + 1)
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([key]) => key)
+}
+
+function unique(items) {
+  const seen = new Set()
+  const out = []
+  for (const item of items) {
+    const key = String(item || '').trim()
+    if (!key) continue
+    if (!seen.has(key)) {
+      seen.add(key)
+      out.push(key)
+    }
+  }
+  return out
+}
+
 function normalizeReturnToUrl(returnTo) {
   const fallback = process.env.APP_ORIGIN || 'http://127.0.0.1:5173/sono/'
   const raw = String(returnTo || fallback).trim()
@@ -338,6 +362,63 @@ function setCachedSearchResults(req, query, tracks) {
 }
 
 /* -----------------------------
+   GENRE SEED MAPPING
+----------------------------- */
+
+const SPOTIFY_SEED_GENRES = new Set([
+  'acoustic', 'afrobeat', 'alt-rock', 'alternative', 'ambient', 'chill',
+  'classical', 'club', 'country', 'dance', 'dancehall', 'disco',
+  'drum-and-bass', 'dub', 'dubstep', 'edm', 'electro', 'electronic',
+  'emo', 'folk', 'funk', 'gospel', 'grunge', 'hip-hop', 'house',
+  'idm', 'indie', 'indie-pop', 'jazz', 'k-pop', 'latin', 'metal',
+  'new-age', 'party', 'piano', 'pop', 'punk', 'punk-rock', 'r-n-b',
+  'rainy-day', 'reggae', 'reggaeton', 'rock', 'romance', 'sad',
+  'singer-songwriter', 'sleep', 'soul', 'soundtracks', 'study',
+  'summer', 'synth-pop', 'techno', 'trance', 'trip-hop', 'work-out',
+])
+
+function mapToSpotifyGenreSeed(genre) {
+  const g = String(genre || '').toLowerCase().trim()
+  if (SPOTIFY_SEED_GENRES.has(g)) return g
+
+  const overrides = {
+    'hip hop': 'hip-hop', 'rap': 'hip-hop', 'trap': 'hip-hop',
+    'melodic rap': 'hip-hop', 'pop rap': 'pop', 'drill': 'hip-hop',
+    'mumble rap': 'hip-hop', 'conscious hip hop': 'hip-hop',
+    'underground hip hop': 'hip-hop', 'east coast hip hop': 'hip-hop',
+    'west coast rap': 'hip-hop', 'gangster rap': 'hip-hop',
+    'dirty south rap': 'hip-hop', 'dark trap': 'hip-hop',
+    'pluggnb': 'r-n-b', 'rage': 'hip-hop',
+    'r&b': 'r-n-b', 'rnb': 'r-n-b', 'neo soul': 'soul',
+    'contemporary r&b': 'r-n-b', 'alternative r&b': 'r-n-b',
+    'indie rock': 'indie', 'indie pop': 'indie-pop',
+    'art pop': 'pop', 'electropop': 'pop', 'dance pop': 'pop',
+    'lo-fi': 'chill', 'lo fi': 'chill', 'lofi': 'chill',
+    'lofi hip hop': 'chill', 'chillhop': 'chill',
+    'latin pop': 'latin', 'afrobeats': 'afrobeat',
+    'g funk': 'hip-hop', 'slap house': 'house', 'future bass': 'electronic',
+  }
+  if (overrides[g]) return overrides[g]
+
+  if (g.includes('hip hop') || g.includes('hip-hop') || g.includes('rap') || g.includes('trap')) return 'hip-hop'
+  if (g.includes('r&b') || g.includes('rnb') || g.includes('neo soul')) return 'r-n-b'
+  if (g.includes('soul')) return 'soul'
+  if (g.includes('indie')) return 'indie'
+  if (g.includes('pop')) return 'pop'
+  if (g.includes('rock')) return 'rock'
+  if (g.includes('electronic') || g.includes('edm') || g.includes('house') || g.includes('techno')) return 'electronic'
+  if (g.includes('country')) return 'country'
+  if (g.includes('jazz')) return 'jazz'
+  if (g.includes('classical') || g.includes('piano')) return 'classical'
+  if (g.includes('latin') || g.includes('reggaeton')) return 'latin'
+  if (g.includes('folk') || g.includes('acoustic')) return 'acoustic'
+  if (g.includes('metal')) return 'metal'
+  if (g.includes('punk')) return 'punk'
+  if (g.includes('chill') || g.includes('lo')) return 'chill'
+  return null
+}
+
+/* -----------------------------
    BUILD SEARCH QUERIES
 ----------------------------- */
 
@@ -539,6 +620,78 @@ router.put('/save', async (req, res) => {
   } catch (error) {
     console.error('Save track error:', error.message)
     res.status(500).json({ error: error.message })
+  }
+})
+
+/* -----------------------------
+   MOOD RECOMMENDATIONS ROUTE
+   Uses Spotify Recommendations API (audio-feature based, not text search)
+   so results are sonically matched — not title-matched.
+----------------------------- */
+
+router.get('/mood-recommendations', async (req, res) => {
+  try {
+    if (!req.session.spotifyToken) {
+      return res.status(401).json({ error: 'Not authenticated with Spotify' })
+    }
+
+    const token = await getValidToken(req)
+
+    const valence = Math.min(1, Math.max(0, parseFloat(req.query.valence) || 0.5))
+    const energy = Math.min(1, Math.max(0, parseFloat(req.query.energy) || 0.5))
+    const limit = Math.min(50, Math.max(10, parseInt(req.query.limit) || 30))
+
+    const taste = await getCachedTasteProfile(req, token)
+
+    // Prefer short-term top artists (first 20 in the combined array) as seeds
+    const seedArtistIds = unique(
+      (taste.artists || []).slice(0, 20).filter((a) => a?.id).map((a) => a.id),
+    ).slice(0, 2)
+
+    // Map user's top genres to valid Spotify seed genres
+    const allUserGenres = rankByCount(
+      (taste.artists || []).slice(0, 20).flatMap((a) => a.genres || []),
+    )
+    const seedGenres = []
+    for (const genre of allUserGenres) {
+      const mapped = mapToSpotifyGenreSeed(genre)
+      if (mapped && !seedGenres.includes(mapped)) seedGenres.push(mapped)
+      if (seedGenres.length >= 3) break
+    }
+
+    // Spotify requires at least 1 seed total (max 5 combined)
+    const totalSeeds = seedArtistIds.length + seedGenres.length
+    if (totalSeeds === 0) {
+      return res.json({ tracks: [], fallback: true })
+    }
+
+    // Keep total seeds ≤ 5
+    const usedArtists = seedArtistIds.slice(0, Math.min(2, 5 - Math.min(seedGenres.length, 2)))
+    const usedGenres = seedGenres.slice(0, Math.min(seedGenres.length, 5 - usedArtists.length))
+
+    const params = new URLSearchParams({ limit })
+    if (usedArtists.length) params.set('seed_artists', usedArtists.join(','))
+    if (usedGenres.length) params.set('seed_genres', usedGenres.join(','))
+    params.set('target_valence', valence.toFixed(3))
+    params.set('target_energy', energy.toFixed(3))
+    // Allow some range so results aren't too narrow
+    params.set('min_valence', Math.max(0, valence - 0.25).toFixed(3))
+    params.set('max_valence', Math.min(1, valence + 0.25).toFixed(3))
+    params.set('min_energy', Math.max(0, energy - 0.25).toFixed(3))
+    params.set('max_energy', Math.min(1, energy + 0.25).toFixed(3))
+    params.set('min_popularity', '15')
+    params.set('max_popularity', '88')
+
+    const data = await spotifyFetchJson(
+      `${SPOTIFY_API_URL}/recommendations?${params.toString()}`,
+      token,
+    )
+
+    const tracks = data.tracks || []
+    res.json({ tracks })
+  } catch (error) {
+    console.error('Mood recommendations error:', error.message)
+    res.json({ tracks: [], error: error.message, fallback: true })
   }
 })
 

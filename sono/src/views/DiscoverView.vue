@@ -97,7 +97,7 @@ import { useRoute } from 'vue-router'
 import { useMoodRecommendations } from '@/composables/useMoodRecommendations'
 
 
-const { moodRecommendations, currentMood, currentGenres, currentSearchTerm, currentSearchQueries, currentArtistSeed } = useMoodRecommendations()
+const { moodRecommendations, currentMood, currentGenres, currentSearchTerm, currentSearchQueries, currentArtistSeed, currentValence, currentEnergy } = useMoodRecommendations()
 const route = useRoute()
 
 
@@ -558,6 +558,36 @@ async function fetchSimilarArtistTracks(artistName) {
   }
 }
 
+async function fetchMoodRecommendations(valence, energy) {
+  const energyMap = { low: 0.25, steady: 0.45, medium: 0.50, high: 0.80 }
+  const energyFloat = typeof energy === 'number'
+    ? energy
+    : energyMap[energy] ?? 0.50
+
+  const params = new URLSearchParams({
+    valence: valence.toFixed(3),
+    energy: energyFloat.toFixed(3),
+    limit: 50,
+  })
+
+  searchLoading.value = true
+  loadingMessage.value = 'Finding music that matches your vibe...'
+
+  try {
+    const res = await fetch(
+      `${API_URL}/api/spotify/mood-recommendations?${params}`,
+      { credentials: 'include' },
+    )
+    if (!res.ok) return []
+    const data = await res.json()
+    return data.tracks || []
+  } catch {
+    return []
+  } finally {
+    searchLoading.value = false
+  }
+}
+
 async function rerunByMode() {
   if (!connected.value) return
 
@@ -678,6 +708,18 @@ onMounted(async () => {
       applyTrackResults(similarTracks)
       return
     }
+  }
+
+  // When coming from the chatbot with a valence score, use the Recommendations API
+  // (audio-feature based, not text search — avoids title-word matching)
+  if (connected.value && currentValence.value !== null) {
+    searchTerm.value = currentSearchTerm.value || routeQuery || routeMood
+    const moodTracks = await fetchMoodRecommendations(currentValence.value, currentEnergy.value)
+    if (moodTracks.length >= 5) {
+      applyTrackResults(moodTracks)
+      return
+    }
+    // Not enough results — fall through to text search
   }
 
   if (connected.value && dedupedAiQueries.length) {

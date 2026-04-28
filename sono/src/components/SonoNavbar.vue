@@ -48,7 +48,7 @@
       </div>
 
       <RouterLink to="/profile" class="profile-icon-link" :class="{ active: isActive('/profile') }" title="Your Profile">
-        <img :src="avatarDataUrl || `${BASE_URL}default-avatar.svg`" alt="Profile" class="nav-avatar" />
+        <img :src="avatarDataUrl || `${BASE_URL}default-avatar.svg`" @error="handleAvatarError" alt="Profile" class="nav-avatar" />
       </RouterLink>
     </div>
 
@@ -129,7 +129,21 @@ const loading = ref(true)
 const connected = ref(false)
 const profile = ref(null)
 const menuOpen = ref(false)
-const { avatarDataUrl } = useUserProfile()
+const { avatarDataUrl, clearAvatar } = useUserProfile()
+
+// Inline SVG fallback — used when both the custom avatar and the SVG file fail to load
+const INLINE_AVATAR = `data:image/svg+xml,${encodeURIComponent('<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="rg" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#F472B6"/><stop offset="100%" stop-color="#7C3AED"/></linearGradient><linearGradient id="fg" x1="25" y1="15" x2="75" y2="95" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#E879B0"/><stop offset="100%" stop-color="#6D28D9"/></linearGradient><clipPath id="cc"><circle cx="50" cy="50" r="43"/></clipPath></defs><circle cx="50" cy="50" r="46" fill="white"/><circle cx="50" cy="50" r="44" stroke="url(#rg)" stroke-width="5" fill="none"/><g clip-path="url(#cc)"><circle cx="50" cy="33" r="13" fill="url(#fg)"/><path d="M14 95 C14 72 28 62 50 62 C72 62 86 72 86 95 Z" fill="url(#fg)"/></g></svg>')}`
+
+function handleAvatarError(e) {
+  e.target.onerror = null // prevent infinite retry loop
+  if (avatarDataUrl.value) {
+    // Custom avatar is broken — clear it from storage and show default
+    clearAvatar()
+  }
+  // Try the SVG file first; if that's already what failed, use the inline data URL
+  const defaultPath = `${BASE_URL}default-avatar.svg`
+  e.target.src = e.target.src.includes('default-avatar') ? INLINE_AVATAR : defaultPath
+}
 
 // Close drawer and unlock scroll on route change
 watch(() => route.path, () => { menuOpen.value = false })
