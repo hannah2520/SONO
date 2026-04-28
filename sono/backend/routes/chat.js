@@ -218,15 +218,17 @@ function buildSystemPrompt(tasteSummary, chatContext) {
     'The searchQueries are the most important part and must be optimized for good music results.',
     'Each search query should be a musically searchable phrase, not a poetic phrase.',
     'Build searchQueries using combinations of genre, energy, tempo, vocals, instrumentation, and emotional tone.',
-    'Prefer phrases like "sad indie pop female vocals", "chill alternative r&b slow", "soft acoustic indie folk", "upbeat dance pop", "dreamy synth pop", "moody electronic late night".',
+    'Query format examples: "emotional hip hop slow", "chill R&B late night female vocals", "sad rap introspective", "upbeat pop dance", "dreamy synth pop", "moody trap atmospheric", "soft R&B slow jam", "alternative indie melancholic".',
     'Avoid vague or aesthetic wording that does not help retrieval, such as "velvet melancholy", "soft-focus nostalgia", "golden hour longing", "emotional release", or "euphoria" when used alone.',
     'Do not return literal non-musical situation phrases unless the user explicitly asks for a specific artist, album, or song.',
     'Generate exactly 5 searchQueries.',
-    'Make each query meaningfully different from the others.',
+    'Make each query meaningfully different from the others — vary the genre, energy descriptor, and vocal/instrument focus.',
     'Do not generate near-duplicate search queries that only swap one or two words.',
-    'When a Spotify taste summary is provided, bias the searchQueries toward genres, artists, sounds, and eras the user already likes.',
-    'Use the taste profile to make results feel personal, with a mix of familiar-adjacent music and discovery.',
-    'Favor emotionally compatible and taste-compatible music over generic mood playlists.',
+    'CRITICAL RULE: When a Spotify taste summary is provided, you MUST ground your searchQueries in the user\'s actual genres and sounds. At least 3 of the 5 queries must directly use genres from the "current genres" or "overall genres" fields in the taste summary.',
+    'Extract the user\'s primary genre from the taste summary (e.g. hip-hop, R&B, pop, rap, trap, country, reggaeton) and make it the backbone of your queries.',
+    'Do NOT default to indie/folk/alternative unless those genres appear in the user\'s taste summary.',
+    'If the user listens to hip-hop and R&B, your queries must reflect hip-hop and R&B sounds — not indie pop. If they listen to pop and dance, use pop and dance.',
+    'You may still include 1-2 discovery queries slightly outside their usual genres, but the majority must match their actual taste.',
     'Write a warm, natural, concise reply in reply.',
     'The reply should show emotional understanding of the user, but should not be overly poetic or abstract.',
     'Do not put JSON fences or markdown in reply.',
@@ -272,59 +274,75 @@ function buildClaudeMessages(messages) {
 
 async function getSpotifyTasteSummary(token) {
   try {
-    const [topArtistsData, topTracksData, recentData, savedData] = await Promise.all([
-      spotifyFetchJson(
-        'https://api.spotify.com/v1/me/top/artists?limit=10&time_range=medium_term',
-        token,
-      ),
-      spotifyFetchJson(
-        'https://api.spotify.com/v1/me/top/tracks?limit=10&time_range=medium_term',
-        token,
-      ),
-      spotifyFetchJson('https://api.spotify.com/v1/me/player/recently-played?limit=10', token),
-      spotifyFetchJson('https://api.spotify.com/v1/me/tracks?limit=10', token),
-    ])
+    const [shortArtistsData, shortTracksData, medArtistsData, medTracksData, recentData, savedData] =
+      await Promise.all([
+        spotifyFetchJson(
+          'https://api.spotify.com/v1/me/top/artists?limit=10&time_range=short_term',
+          token,
+        ),
+        spotifyFetchJson(
+          'https://api.spotify.com/v1/me/top/tracks?limit=10&time_range=short_term',
+          token,
+        ),
+        spotifyFetchJson(
+          'https://api.spotify.com/v1/me/top/artists?limit=10&time_range=medium_term',
+          token,
+        ),
+        spotifyFetchJson(
+          'https://api.spotify.com/v1/me/top/tracks?limit=10&time_range=medium_term',
+          token,
+        ),
+        spotifyFetchJson('https://api.spotify.com/v1/me/player/recently-played?limit=10', token),
+        spotifyFetchJson('https://api.spotify.com/v1/me/tracks?limit=10', token),
+      ])
 
-    const topArtists = topArtistsData.items || []
-    const topTracks = topTracksData.items || []
+    const shortArtists = shortArtistsData.items || []
+    const shortTracks = shortTracksData.items || []
+    const medArtists = medArtistsData.items || []
+    const medTracks = medTracksData.items || []
     const recentItems = recentData.items || []
     const savedItems = savedData.items || []
 
-    const genres = rankByCount(topArtists.flatMap((artist) => artist.genres || [])).slice(0, 6)
-    const artists = topArtists
-      .map((artist) => artist.name)
+    const recentGenres = rankByCount(shortArtists.flatMap((a) => a.genres || [])).slice(0, 5)
+    const overallGenres = rankByCount(medArtists.flatMap((a) => a.genres || [])).slice(0, 5)
+
+    const recentArtistNames = shortArtists.map((a) => a.name).filter(Boolean).slice(0, 6)
+    const overallArtistNames = unique(
+      medArtists.map((a) => a.name).filter(Boolean),
+    ).filter((a) => !recentArtistNames.includes(a)).slice(0, 4)
+
+    const recentTrackNames = shortTracks
+      .map((t) => (t?.name && t?.artists?.[0]?.name ? `${t.name} by ${t.artists[0].name}` : null))
       .filter(Boolean)
-      .slice(0, 6)
-    const tracks = topTracks
-      .map((track) =>
-        track?.name && track?.artists?.[0]?.name
-          ? `${track.name} by ${track.artists[0].name}`
-          : track?.name || null,
-      )
+      .slice(0, 4)
+
+    const allTimeTrackNames = medTracks
+      .map((t) => (t?.name && t?.artists?.[0]?.name ? `${t.name} by ${t.artists[0].name}` : null))
       .filter(Boolean)
-      .slice(0, 5)
-    const recentArtists = unique(
-      recentItems
-        .flatMap((item) => item?.track?.artists || [])
-        .map((artist) => artist.name)
-        .filter(Boolean),
-    ).slice(0, 5)
+      .slice(0, 3)
+
+    const justPlayedArtists = unique(
+      recentItems.flatMap((item) => item?.track?.artists || []).map((a) => a.name).filter(Boolean),
+    ).filter((a) => !recentArtistNames.includes(a)).slice(0, 4)
+
     const savedArtists = unique(
-      savedItems
-        .flatMap((item) => item?.track?.artists || [])
-        .map((artist) => artist.name)
-        .filter(Boolean),
-    ).slice(0, 5)
+      savedItems.flatMap((item) => item?.track?.artists || []).map((a) => a.name).filter(Boolean),
+    ).slice(0, 4)
 
     return [
-      artists.length ? `top artists: ${artists.join(', ')}` : null,
-      genres.length ? `top genres: ${genres.join(', ')}` : null,
-      tracks.length ? `top tracks: ${tracks.join(', ')}` : null,
-      recentArtists.length ? `recent artists: ${recentArtists.join(', ')}` : null,
+      recentArtistNames.length
+        ? `CURRENT favorites (last 4 weeks) — artists: ${recentArtistNames.join(', ')}`
+        : null,
+      recentGenres.length ? `current genres: ${recentGenres.join(', ')}` : null,
+      recentTrackNames.length ? `currently playing: ${recentTrackNames.join(' | ')}` : null,
+      overallArtistNames.length ? `also listens to: ${overallArtistNames.join(', ')}` : null,
+      overallGenres.length ? `overall genres: ${overallGenres.join(', ')}` : null,
+      allTimeTrackNames.length ? `all-time tracks: ${allTimeTrackNames.join(' | ')}` : null,
+      justPlayedArtists.length ? `just played: ${justPlayedArtists.join(', ')}` : null,
       savedArtists.length ? `saved artists: ${savedArtists.join(', ')}` : null,
     ]
       .filter(Boolean)
-      .join(' | ')
+      .join(' || ')
   } catch (error) {
     console.error('Failed to build Spotify taste summary:', error)
     return null
@@ -590,6 +608,7 @@ function diversifySearchQueries(queries) {
 function buildFallbackSearchQueries(mood, genres, options = {}) {
   const { energy = 'medium', intent = 'match', discoveryPreference = 'mixed' } = options
   const primaryGenre = genres[0] || ''
+  const secondaryGenre = genres[1] || ''
   const gemsBias = discoveryPreference === 'hidden_gems' ? 'hidden gems' : ''
   const intentModifier =
     intent === 'shift'
@@ -603,15 +622,16 @@ function buildFallbackSearchQueries(mood, genres, options = {}) {
             : ''
   const energyModifier = energy === 'high' ? 'high energy' : energy === 'low' ? 'soft' : 'steady'
 
+  const genreBase = primaryGenre || 'pop'
+  const genreBase2 = secondaryGenre || genreBase
+
   const candidates = [
-    primaryGenre ? `${primaryGenre} ${energyModifier}` : `indie pop ${energyModifier}`,
-    primaryGenre ? `${primaryGenre} ${intentModifier}`.trim() : `alternative ${intentModifier}`.trim(),
-    gemsBias ? `${primaryGenre || 'indie'} ${gemsBias}` : '',
-    `melodic indie pop`,
-    `moody alternative r&b`,
-    `soft indie folk`,
-    `dreamy synth pop`,
-    `emotional alternative`,
+    `${genreBase} ${energyModifier}`,
+    intentModifier ? `${genreBase} ${intentModifier}`.trim() : `${genreBase} emotional`,
+    gemsBias ? `${genreBase2} ${gemsBias}` : `${genreBase2} ${energyModifier}`,
+    `${genreBase} melodic`,
+    `${genreBase2} atmospheric`,
+    `${genreBase} slow`,
   ]
 
   return unique(
